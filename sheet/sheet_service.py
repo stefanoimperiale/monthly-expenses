@@ -1,11 +1,8 @@
 import os
-import pickle
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
-TOKEN_PICKLE = os.path.join(BASE_DIR, 'token.pickle')
 CREDENTIALS_JSON = os.path.join(BASE_DIR, 'credentials.json')
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -13,25 +10,10 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 class SheetService:
     def __init__(self):
-        credentials = None
-        # The file token.pickle stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first
-        # time.
-        if os.path.exists(TOKEN_PICKLE):
-            with open(TOKEN_PICKLE, 'rb') as token:
-                credentials = pickle.load(token)
-        # If there are no (valid) credentials available, let the user log in.
-        if not credentials or not credentials.valid:
-            if credentials and credentials.expired and credentials.refresh_token:
-                credentials.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    CREDENTIALS_JSON, SCOPES)
-                credentials = flow.run_local_server(port=0)
-            # Save the credentials for the next run
-            with open('token.pickle', 'wb') as token:
-                pickle.dump(credentials, token)
-
+        # Create a new service account in https://console.developers.google.com/apis/credentials,
+        # and then share the spreadsheet file using the email of the generated account
+        credentials = service_account.Credentials.from_service_account_file(
+            CREDENTIALS_JSON, scopes=SCOPES)
         service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
         # Call the Sheets API
         self.sheet = service.spreadsheets()

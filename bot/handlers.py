@@ -41,6 +41,9 @@ def set_handlers(dispatcher: Dispatcher, user_id):
     )
     dispatcher.add_handler(chart_handler)
 
+    user_not_allowed_handler = MessageHandler(~Filters.user(user_id=int(user_id)), not_allowed)
+    dispatcher.add_handler(user_not_allowed_handler)
+
     # log all errors
     dispatcher.add_error_handler(error)
 

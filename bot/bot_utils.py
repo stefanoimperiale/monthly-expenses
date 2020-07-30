@@ -121,6 +121,7 @@ def get_chart_from_sheet(date):
     text = threading.Thread(target=render, args=(html, loop))
     text.start()
     text.join()
+    # UBUNTU config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
     config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
     img = imgkit.from_string(html.find('#piechart_3d')[0].html, False, config=config, options={
         'format': 'png',

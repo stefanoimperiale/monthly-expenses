@@ -37,6 +37,10 @@ def send_images_helper(context, chat_id, images, caption):
         context.bot.send_photo(chat_id=chat_id, photo=images[0], caption=caption, parse_mode=ParseMode.MARKDOWN)
 
 
+def not_allowed(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="User not allowed in this chat.")
+
+
 def error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
@@ -75,7 +79,7 @@ def choose_date(update, context):
                                      f"/cancel")
         return NAME
     elif query.data == 'calendar':
-        #TODO check the sheets before to disable the month not available
+        # TODO check the sheets before to disable the month not available
         today = date.today()
         cal, step = MyStyleCalendar(max_date=date(today.year, 12, 31), min_date=date(today.year, 1, 1)).build()
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
@@ -91,7 +95,8 @@ def calendar(update, context):
     query = update.callback_query
     # TODO see above
     today = date.today()
-    result, key, step = MyStyleCalendar(max_date=date(today.year, 12, 31), min_date=date(today.year, 1, 1)).process(query.data)
+    result, key, step = MyStyleCalendar(max_date=date(today.year, 12, 31), min_date=date(today.year, 1, 1)).process(
+        query.data)
     if not result and key:
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
                                 f"/cancel",
