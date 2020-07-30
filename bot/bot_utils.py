@@ -8,7 +8,6 @@ from datetime import datetime
 from decimal import Decimal
 from re import sub
 
-import gviz_api
 import imgkit
 from telegram_bot_calendar import DetailedTelegramCalendar
 
