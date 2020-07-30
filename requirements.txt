@@ -1,3 +1,4 @@
+setuptools
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
@@ -13,4 +14,3 @@ parse
 bs4
 w3lib
 pyppeteer
-setuptools
