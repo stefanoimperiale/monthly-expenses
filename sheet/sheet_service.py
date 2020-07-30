@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
 TOKEN_PICKLE = os.path.join(BASE_DIR, 'token.pickle')
-CREDENTIALS_JSON = os.path.join(BASE_DIR, '../credentials.json')
+CREDENTIALS_JSON = os.path.join(BASE_DIR, 'credentials.json')
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -36,6 +36,9 @@ class SheetService:
         # Call the Sheets API
         self.sheet = service.spreadsheets()
 
+    def get_sheet(self, sheet_id, range, include_grid_data):
+        return self.sheet.get(spreadsheetId=sheet_id, ranges=range, includeGridData=include_grid_data).execute()
+
     def read_sheet(self, sheet_id, range):
         return self.sheet.values().get(spreadsheetId=sheet_id, range=range).execute()
 
@@ -49,4 +52,4 @@ class SheetService:
             range=range,
             valueInputOption='USER_ENTERED',
             body=body).execute()
-        return result.get('updates').get('updatedCells')
+        return result.get('updates').get('updatedRows')

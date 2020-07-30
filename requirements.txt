@@ -5,3 +5,11 @@ oauth2client
 python-telegram-bot
 python-telegram-bot-calendar
 fastnumbers
+imgkit
+requests
+pyquery
+fake-useragent
+parse
+bs4
+w3lib
+pyppeteer
