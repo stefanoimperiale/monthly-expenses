@@ -1,18 +1,20 @@
 from telegram.ext import \
     CommandHandler, Dispatcher, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
+from bot.bot_utils import USER_ID
 from bot.commands import unknown, error, start, keyboard, DATE, new_element, NAME, add_name, cancel, calendar, \
     SET_CALENDAR, choose_date, IMPORT, add_import, CHART_CALENDAR, CHART_DATE, get_chart_date, \
-    chart_calendar, set_chart_date
+    chart_calendar, set_chart_date, not_allowed
 
 text_filter = (~ Filters.command & ~ Filters.text(keyboard)) & Filters.text
 
 
-def set_handlers(dispatcher: Dispatcher, user_id):
-    def message_filter(keyboard_):
-        return Filters.user(user_id=int(user_id)) & Filters.text(keyboard_)
+def set_handlers(dispatcher: Dispatcher):
 
-    start_handler = CommandHandler('start', start, Filters.user(user_id=int(user_id)))
+    def message_filter(keyboard_):
+        return Filters.user(user_id=int(USER_ID)) & Filters.text(keyboard_)
+
+    start_handler = CommandHandler('start', start, Filters.user(user_id=int(USER_ID)))
     dispatcher.add_handler(start_handler)
 
     new_el_handler = ConversationHandler(
@@ -41,7 +43,7 @@ def set_handlers(dispatcher: Dispatcher, user_id):
     )
     dispatcher.add_handler(chart_handler)
 
-    user_not_allowed_handler = MessageHandler(~Filters.user(user_id=int(user_id)), not_allowed)
+    user_not_allowed_handler = MessageHandler(~Filters.user(user_id=int(USER_ID)), not_allowed)
     dispatcher.add_handler(user_not_allowed_handler)
 
     # log all errors

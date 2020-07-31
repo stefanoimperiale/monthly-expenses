@@ -7,6 +7,7 @@ import threading
 from datetime import datetime
 from decimal import Decimal
 from re import sub
+from time import strptime
 
 import imgkit
 from telegram_bot_calendar import DetailedTelegramCalendar
@@ -20,12 +21,17 @@ logger = logging.getLogger(__name__)
 
 SPREADSHEET_ID = os.getenv("SHEET_ID")
 CURRENCY = os.getenv("CURRENCY")
+USER_ID = os.getenv("USER_ID")
+
 if SPREADSHEET_ID is None:
     logger.error("No SHEET_ID specified!")
     sys.exit(1)
 if CURRENCY is None:
     logger.info("No currency specified, EUR setted by default")
     CURRENCY = '€'
+if USER_ID is None:
+    logger.error("No USER_ID specified!")
+    sys.exit(1)
 
 page_template = """
         <html>
@@ -133,6 +139,20 @@ def get_chart_from_sheet(date):
     })
     str_file = io.BytesIO(img)
     return str_file
+
+
+def get_sheet_min_max_month():
+    spreadsheet = SheetService().get_spreadsheet(SPREADSHEET_ID, [], False)
+    sheets = spreadsheet['sheets']
+    if len(sheets) > 0:
+        first = sheets[0]
+        last = sheets[-1]
+        first_month = strptime(first['properties']['title'], '%B').tm_mon
+        last_month = strptime(last['properties']['title'], '%B').tm_mon
+        logger.info('first month %s, last month %s', first_month, last_month)
+        return first_month, last_month
+    else:
+        return -1, -1
 
 
 class MyStyleCalendar(DetailedTelegramCalendar):

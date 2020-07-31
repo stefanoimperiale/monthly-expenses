@@ -13,20 +13,14 @@ logger = logging.getLogger(__name__)
 MODE = os.getenv("MODE")
 TOKEN = os.getenv("TOKEN")
 
-USER_ID = os.getenv("USER_ID")
-
 if MODE is None:
     logger.error("No MODE specified!")
     sys.exit(1)
 if TOKEN is None:
     logger.error("No TOKEN specified!")
     sys.exit(1)
-if USER_ID is None:
-    logger.error("No USER_ID specified!")
-    sys.exit(1)
 
 SAMPLE_RANGE_NAME = calendar.month_name[8]
-
 
 # Getting mode, so we could define run function for local and Heroku setup
 
@@ -52,7 +46,7 @@ if __name__ == '__main__':
     updater = Updater(token=TOKEN, use_context=True)
     dispatcher = updater.dispatcher
 
-    set_handlers(dispatcher, USER_ID)
+    set_handlers(dispatcher)
     run(updater)
 
     # Block until the user presses Ctrl-C or the process receives SIGINT,

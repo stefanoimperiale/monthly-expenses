@@ -1,13 +1,17 @@
 import logging
+import sys
+import traceback
 from datetime import datetime, date
 
 import telegram
+from telegram.utils.helpers import mention_html
 from fastnumbers import fast_float
 from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, ParseMode
 from telegram.ext import ConversationHandler
 from telegram_bot_calendar import LSTEP
 
-from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_gain, get_chart_from_sheet, CURRENCY
+from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_gain, get_chart_from_sheet, CURRENCY, \
+    USER_ID, get_sheet_min_max_month
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -41,11 +45,6 @@ def not_allowed(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="User not allowed in this chat.")
 
 
-def error(update, context):
-    """Log Errors caused by Updates."""
-    logger.warning('Update "%s" caused error "%s"', update, context.error)
-
-
 def unknown(update, context):
     """ UNKNOWN COMMAND"""
     context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.",
@@ -72,20 +71,35 @@ def new_element(update, context):
 
 def choose_date(update, context):
     query = update.callback_query
+    min_, max_ = get_sheet_min_max_month()
     if query.data == 'today':
-        context.user_data['date'] = date.today()
-        query.edit_message_text(text=f"📆 Date: {date.today().strftime('%d/%m/%Y')}\n\n"
-                                     f"✍ Insert the description\n\n"
-                                     f"/cancel")
-        return NAME
-    elif query.data == 'calendar':
-        # TODO check the sheets before to disable the month not available
         today = date.today()
-        cal, step = MyStyleCalendar(max_date=date(today.year, 12, 31), min_date=date(today.year, 1, 1)).build()
-        query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
-                                f"/cancel",
-                                reply_markup=cal)
-        return SET_CALENDAR
+        if min_ <= today.month <= max_:
+            context.user_data['date'] = date.today()
+            query.edit_message_text(text=f"📆 Date: {date.today().strftime('%d/%m/%Y')}\n\n"
+                                         f"✍ Insert the description\n\n"
+                                         f"/cancel")
+            return NAME
+        else:
+            query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is not present.\n\n"
+                                         f"📃 Create a new sheet for the selected month with /new_sheet command")
+            return ConversationHandler.END
+
+    elif query.data == 'calendar':
+        if min_ != -1 and max_ != -1:
+            today = date.today()
+            date_min = date(today.year, min_, 1)
+            date_max = date(today.year, max_, 31)
+            context.user_data['date_min_max'] = date_min, date_max
+            cal, step = MyStyleCalendar(max_date= date_max, min_date=date_min).build()
+            query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
+                                    f"/cancel",
+                                    reply_markup=cal)
+            return SET_CALENDAR
+        else:
+            query.edit_message_text(text=f"⚠ Warning! No sheets are present.\n\n"
+                                         f"📃 Create a new one with /new_sheet command")
+            return ConversationHandler.END
     elif query.data == 'cancel':
         query.edit_message_text(text='❌ Cancelled')
         return ConversationHandler.END
@@ -93,9 +107,8 @@ def choose_date(update, context):
 
 def calendar(update, context):
     query = update.callback_query
-    # TODO see above
-    today = date.today()
-    result, key, step = MyStyleCalendar(max_date=date(today.year, 12, 31), min_date=date(today.year, 1, 1)).process(
+    date_min, date_max = context.user_data['date_min_max']
+    result, key, step = MyStyleCalendar(max_date=date_max, min_date=date_min).process(
         query.data)
     if not result and key:
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
@@ -165,18 +178,32 @@ def get_chart_date(update, context):
 
 def chart_calendar(update, context):
     query = update.callback_query
+    min_, max_ = get_sheet_min_max_month()
+    today = date.today()
     if query.data == 'this_month':
-        return __get_chart(update, context, date.today(), query)
+        if min_ <= today.month <= max_:
+            return __get_chart(update, context, today, query)
+        else:
+            query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is not present.\n\n"
+                                         f"📃 Create a new sheet for the selected month with /new_sheet command")
+            return ConversationHandler.END
 
     elif query.data == 'calendar':
-        today = date.today()
-        cal = MyStyleCalendar(max_date=today, min_date=date(today.year, 1, 1))
-        cal.first_step = 'm'
-        cal, step = cal.build()
-        query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
-                                f"/cancel",
-                                reply_markup=cal)
-        return CHART_DATE
+        if min_ != -1 and max_ != -1:
+            date_min = date(today.year, min_, 1)
+            date_max = date(today.year, max_, 31)
+            context.user_data['date_min_max'] = date_min, date_max
+            cal = MyStyleCalendar(max_date=date_max, min_date=date_min)
+            cal.first_step = 'm'
+            cal, step = cal.build()
+            query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
+                                    f"/cancel",
+                                    reply_markup=cal)
+            return CHART_DATE
+        else:
+            query.edit_message_text(text=f"⚠ Warning! No sheets are present.\n\n"
+                                         f"📃 Create a new one with /new_sheet command")
+            return ConversationHandler.END
     elif query.data == 'cancel':
         query.edit_message_text(text='❌ Cancelled')
         return ConversationHandler.END
@@ -184,7 +211,8 @@ def chart_calendar(update, context):
 
 def set_chart_date(update, context):
     query = update.callback_query
-    result, key, step = MyStyleCalendar().process(query.data)
+    date_min, date_max = context.user_data['date_min_max']
+    result, key, step = MyStyleCalendar(max_date=date_max, min_date=date_min).process(query.data)
     if step == 'm' and key:
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
                                 f"/cancel",
@@ -215,3 +243,43 @@ def cancel(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='❌ Cancelled')
     return ConversationHandler.END
+
+
+# Error handler function
+def error(update, context):
+    # add all the dev user_ids in this list. You can also add ids of channels or groups.
+    # This is a personal bot, so the user is also the dev
+    devs = [USER_ID]
+    # we want to notify the user of this problem. This will always work, but not notify users if the update is an
+    # callback or inline query, or a poll update. In case you want this, keep in mind that sending the message
+    # could fail
+    if update.effective_message:
+        text = "Hey. I'm sorry to inform you that an error happened while I tried to handle your update. " \
+               "My developer(s) will be notified."
+        update.effective_message.reply_text(text)
+    # This traceback is created with accessing the traceback object from the sys.exc_info, which is returned as the
+    # third value of the returned tuple. Then we use the traceback.format_tb to get the traceback as a string, which
+    # for a weird reason separates the line breaks in a list, but keeps the linebreaks itself. So just joining an
+    # empty string works fine.
+    trace = "".join(traceback.format_tb(sys.exc_info()[2]))
+    # lets try to get as much information from the telegram update as possible
+    payload = ""
+    # normally, we always have an user. If not, its either a channel or a poll update.
+    if update.effective_user:
+        payload += f' with the user {mention_html(update.effective_user.id, update.effective_user.first_name)}'
+    # there are more situations when you don't get a chat
+    if update.effective_chat:
+        payload += f' within the chat <i>{update.effective_chat.title}</i>'
+        if update.effective_chat.username:
+            payload += f' (@{update.effective_chat.username})'
+    # but only one where you have an empty payload by now: A poll
+    if update.poll:
+        payload += f' with the poll id {update.poll.id}.'
+    # lets put this in a "well" formatted text
+    text = f"Hey.\n The error <code>{context.error}</code> happened{payload}. The full traceback:\n\n<code>{trace}" \
+           f"</code>"
+    # and send it to the dev(s)
+    for dev_id in devs:
+        context.bot.send_message(dev_id, text, parse_mode=ParseMode.HTML)
+    # we raise the error again, so the logger module catches it. If you don't use the logger module, use it.
+    raise

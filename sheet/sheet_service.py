@@ -18,7 +18,7 @@ class SheetService:
         # Call the Sheets API
         self.sheet = service.spreadsheets()
 
-    def get_sheet(self, sheet_id, range, include_grid_data):
+    def get_spreadsheet(self, sheet_id, range, include_grid_data):
         return self.sheet.get(spreadsheetId=sheet_id, ranges=range, includeGridData=include_grid_data).execute()
 
     def read_sheet(self, sheet_id, range):
