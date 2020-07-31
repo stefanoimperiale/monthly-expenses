@@ -1,8 +1,6 @@
 import asyncio
 import io
 import logging
-import os
-import sys
 import threading
 from datetime import datetime
 from decimal import Decimal
@@ -10,62 +8,19 @@ from re import sub
 from time import strptime
 
 import imgkit
+import plotly.graph_objects as go
+from kaleido.scopes.plotly import PlotlyScope
 from telegram_bot_calendar import DetailedTelegramCalendar
+from itertools import zip_longest
 
-from html_render.requests_html import HTML
+from bot.html_template import chart_template
+from env_variables import SPREADSHEET_ID, CURRENCY
+from html_render.requests_html import HTML, HTMLSession
 from sheet.sheet_service import SheetService
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-SPREADSHEET_ID = os.getenv("SHEET_ID")
-CURRENCY = os.getenv("CURRENCY")
-USER_ID = os.getenv("USER_ID")
-
-if SPREADSHEET_ID is None:
-    logger.error("No SHEET_ID specified!")
-    sys.exit(1)
-if CURRENCY is None:
-    logger.info("No currency specified, EUR setted by default")
-    CURRENCY = '€'
-if USER_ID is None:
-    logger.error("No USER_ID specified!")
-    sys.exit(1)
-
-page_template = """
-        <html>
-          <head>
-          <meta charset="utf-8">
-            <title>Monthly Example</title>
-            <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-            <script type="text/javascript">
-              google.charts.load('current', {'packages':['corechart']});
-              google.setOnLoadCallback(drawTable);
-              function drawTable() {
-                var json_data = new google.visualization.arrayToDataTable(%(json)s);
-                var formatter = new google.visualization.NumberFormat({prefix: '""" + CURRENCY + """ '});
-                formatter.format(json_data, 1)
-                var options = {
-                    title: 'Monthly expenses',
-                    is3D: true,
-                    pieSliceText: 'label',
-                    sliceVisibilityThreshold: 0,
-                    legend: {
-                        labeledValueText: 'both',
-                        position: 'labeled'
-                    }
-                };
-                var chart = new google.visualization.PieChart(document.getElementById('piechart_3d'))
-                chart.draw(json_data, options);
-              }
-            </script>
-          </head>
-          <body>
-            <div id="piechart_3d" style="width: 900px; height: 500px;"></div>
-          </body>
-        </html>
-        """
 
 
 def build_menu(buttons, n_cols, header_buttons=None, footer_buttons=None):
@@ -115,21 +70,73 @@ def render(html_, loop):
     html_.render(reload=False)
 
 
-def get_chart_from_sheet(date):
-    month = date.strftime("%B")
-    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!F2:G')
-    values = result.get('values', [])
-    title = values[0]
-    values = list(map(convert_to_decimal, values[1:]))
-    values.insert(0, title)
-    html = HTML(html=str(page_template % {"json": values}))
+def __get_data_from_sheet(data, template, imgkit_options, selector=None):
+    html = HTML(session=HTMLSession(browser_args=['--start-maximized', '--no-sandbox']),
+                html=str(template % {"json": data}))
     loop = asyncio.new_event_loop()
     text = threading.Thread(target=render, args=(html, loop))
     text.start()
     text.join()
     # UBUNTU config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
     config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
-    img = imgkit.from_string(html.find('#piechart_3d')[0].html, False, config=config, options={
+    content = html.html
+    if selector is not None:
+        content = html.find(selector)[0].html
+    img = imgkit.from_string(content, False, config=config, options=imgkit_options)
+    str_file = io.BytesIO(img)
+    return str_file
+
+
+def get_table_from_sheet(date):
+    month = date.strftime("%B")
+    result = SheetService().read_sheet_multiple(SPREADSHEET_ID,
+                                                [f'{month}!A2:C', f'{month}!E2:G', f'{month}!I2:J'],
+                                                major_dimension='COLUMNS')
+    values = result.get('valueRanges', [])
+    header = []
+    l_ = []
+    if len(values) > 0:
+        for val in values:
+            header = header + [item[0] for item in val['values']]
+            l_ = l_ + [i[1:] for i in val['values']]
+        scope = PlotlyScope()
+        fig = go.Figure(data=[go.Table(
+            columnwidth=[80, 150, 100, 80, 150, 100, 100, 100],
+            header=dict(values=header),
+            cells=dict(values=l_,
+                       fill=dict(
+                           color=['lightgreen', 'lightgreen', 'lightgreen', '#ff9982', '#ff9982', '#ff9982',
+                                  '#ffbf70', '#ffbf70']),
+                       height=30
+                       )
+        )
+        ])
+        test = scope.transform(fig, format="png", scale=2)
+        str_file = io.BytesIO(test)
+        return str_file
+    else:
+        return None
+
+
+def get_chart_from_sheet(date):
+    month = date.strftime("%B")
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!F2:G')
+    values = result.get('values', [])
+    if len(values) == 0:
+        return None
+
+    title = values[0]
+    values = list(map(convert_to_decimal, values[1:]))
+    values.insert(0, title)
+    html = HTML(html=str(chart_template % {"json": values}))
+    loop = asyncio.new_event_loop()
+    text = threading.Thread(target=render, args=(html, loop))
+    text.start()
+    text.join()
+    # UBUNTU config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
+    config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
+    content = html.find('#content')[0].html
+    img = imgkit.from_string(content, False, config=config, options={
         'format': 'png',
         'crop-w': '650',
         'crop-x': '150',

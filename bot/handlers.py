@@ -1,10 +1,10 @@
 from telegram.ext import \
     CommandHandler, Dispatcher, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 
-from bot.bot_utils import USER_ID
 from bot.commands import unknown, error, start, keyboard, DATE, new_element, NAME, add_name, cancel, calendar, \
     SET_CALENDAR, choose_date, IMPORT, add_import, CHART_CALENDAR, CHART_DATE, get_chart_date, \
     chart_calendar, set_chart_date, not_allowed
+from env_variables import USER_ID
 
 text_filter = (~ Filters.command & ~ Filters.text(keyboard)) & Filters.text
 
@@ -31,14 +31,14 @@ def set_handlers(dispatcher: Dispatcher):
     dispatcher.add_handler(new_el_handler)
 
     chart_handler = ConversationHandler(
-        entry_points=[MessageHandler(message_filter(keyboard[3]), get_chart_date)],
+        entry_points=[MessageHandler(message_filter(keyboard[2:4]), get_chart_date)],
         states={
             CHART_CALENDAR: [CallbackQueryHandler(chart_calendar)],
             CHART_DATE: [CallbackQueryHandler(set_chart_date)]
         },
         fallbacks=[
             CommandHandler('cancel', cancel),
-            MessageHandler(message_filter(keyboard[3]), get_chart_date)
+            MessageHandler(message_filter(keyboard[2:4]), get_chart_date)
         ]
     )
     dispatcher.add_handler(chart_handler)

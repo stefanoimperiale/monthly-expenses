@@ -21,8 +21,11 @@ class SheetService:
     def get_spreadsheet(self, sheet_id, range, include_grid_data):
         return self.sheet.get(spreadsheetId=sheet_id, ranges=range, includeGridData=include_grid_data).execute()
 
-    def read_sheet(self, sheet_id, range):
-        return self.sheet.values().get(spreadsheetId=sheet_id, range=range).execute()
+    def read_sheet(self, sheet_id, range, major_dimension=None):
+        return self.sheet.values().get(spreadsheetId=sheet_id, range=range, majorDimension=major_dimension).execute()
+
+    def read_sheet_multiple(self, sheet_id, ranges, major_dimension=None):
+        return self.sheet.values().batchGet(spreadsheetId=sheet_id, ranges=ranges,  majorDimension=major_dimension).execute()
 
     def write_sheet(self, sheet_id, range, values):
         body = {

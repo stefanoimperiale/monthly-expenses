@@ -14,3 +14,5 @@ parse
 bs4
 w3lib
 pyppeteer
+plotly==4.9.0
+kaleido>=0.0.2

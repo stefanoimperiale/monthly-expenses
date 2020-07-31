@@ -11,12 +11,14 @@ from telegram.ext import ConversationHandler
 from telegram_bot_calendar import LSTEP
 
 from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_gain, get_chart_from_sheet, CURRENCY, \
-    USER_ID, get_sheet_min_max_month
+    get_sheet_min_max_month, get_table_from_sheet
+from env_variables import USER_ID
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
-keyboard = ['💸 New Expense', '🤑 New Gain', '📈 Show Table', '📊 Show Graph', '📃 New Sheet', '⁉ Help']
+keyboard = ['💸 New Expense', '🤑 New Gain', '📈 Show Table', '📊 Show Graph', '📋 Show Report', '📃 New Sheet',
+            '⁉ Help']
 DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE = range(6)
 
 
@@ -71,6 +73,11 @@ def new_element(update, context):
 
 def choose_date(update, context):
     query = update.callback_query
+
+    if query.data == 'cancel':
+        query.edit_message_text(text='❌ Cancelled')
+        return ConversationHandler.END
+
     min_, max_ = get_sheet_min_max_month()
     if query.data == 'today':
         today = date.today()
@@ -91,7 +98,7 @@ def choose_date(update, context):
             date_min = date(today.year, min_, 1)
             date_max = date(today.year, max_, 31)
             context.user_data['date_min_max'] = date_min, date_max
-            cal, step = MyStyleCalendar(max_date= date_max, min_date=date_min).build()
+            cal, step = MyStyleCalendar(max_date=date_max, min_date=date_min).build()
             query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
                                     f"/cancel",
                                     reply_markup=cal)
@@ -100,9 +107,6 @@ def choose_date(update, context):
             query.edit_message_text(text=f"⚠ Warning! No sheets are present.\n\n"
                                          f"📃 Create a new one with /new_sheet command")
             return ConversationHandler.END
-    elif query.data == 'cancel':
-        query.edit_message_text(text='❌ Cancelled')
-        return ConversationHandler.END
 
 
 def calendar(update, context):
@@ -167,6 +171,7 @@ def add_import(update, context):
 
 
 def get_chart_date(update, context):
+    context.user_data['element'] = keyboard.index(update.message.text)
     date_choose_keyboard = [[InlineKeyboardButton("👇 This Month", callback_data='this_month'),
                              InlineKeyboardButton("📅 Calendar", callback_data='calendar')],
                             [InlineKeyboardButton('✖ Cancel', callback_data='cancel')]]
@@ -178,11 +183,15 @@ def get_chart_date(update, context):
 
 def chart_calendar(update, context):
     query = update.callback_query
+    if query.data == 'cancel':
+        query.edit_message_text(text='❌ Cancelled')
+        return ConversationHandler.END
+
     min_, max_ = get_sheet_min_max_month()
     today = date.today()
     if query.data == 'this_month':
         if min_ <= today.month <= max_:
-            return __get_chart(update, context, today, query)
+            return __get_chart_or_table(update, context, today, query)
         else:
             query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is not present.\n\n"
                                          f"📃 Create a new sheet for the selected month with /new_sheet command")
@@ -204,9 +213,6 @@ def chart_calendar(update, context):
             query.edit_message_text(text=f"⚠ Warning! No sheets are present.\n\n"
                                          f"📃 Create a new one with /new_sheet command")
             return ConversationHandler.END
-    elif query.data == 'cancel':
-        query.edit_message_text(text='❌ Cancelled')
-        return ConversationHandler.END
 
 
 def set_chart_date(update, context):
@@ -225,17 +231,25 @@ def set_chart_date(update, context):
         month = int(params["month"])
         today = datetime.today()
         today = date(today.year, month, today.day)
-        return __get_chart(update, context, today, query)
+        return __get_chart_or_table(update, context, today, query)
 
 
-def __get_chart(update, context, date_, query):
+def __get_chart_or_table(update, context, date_, query):
     query.edit_message_text(text='🔄 Retrieving the chart...')
     context.bot.sendChatAction(chat_id=update.effective_chat.id,
                                action=telegram.ChatAction.UPLOAD_PHOTO)
     chart_date = date_
-    image = get_chart_from_sheet(chart_date)
-    send_images_helper(context, update.effective_chat.id, [image],
-                       f'Expanses Pie Chart for {chart_date.strftime("%B")}')
+    image = ''
+    if context.user_data['element'] == 2:
+        image = get_table_from_sheet(chart_date)
+    elif context.user_data['element'] == 3:
+        image = get_chart_from_sheet(chart_date)
+
+    if image is None:
+        query.edit_message_text(text='⚠ No data found to create the table')
+    else:
+        send_images_helper(context, update.effective_chat.id, [image],
+                           f'Expanses Pie Chart for {chart_date.strftime("%B")}')
     return ConversationHandler.END
 
 
@@ -281,5 +295,4 @@ def error(update, context):
     # and send it to the dev(s)
     for dev_id in devs:
         context.bot.send_message(dev_id, text, parse_mode=ParseMode.HTML)
-    # we raise the error again, so the logger module catches it. If you don't use the logger module, use it.
     raise

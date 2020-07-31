@@ -5,33 +5,24 @@ import logging
 
 from telegram.ext import Updater
 from bot.handlers import set_handlers
+from env_variables import MODE, TOKEN, HEROKU_APP, HEROKU_PORT
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODE = os.getenv("MODE")
-TOKEN = os.getenv("TOKEN")
-
-if MODE is None:
-    logger.error("No MODE specified!")
-    sys.exit(1)
-if TOKEN is None:
-    logger.error("No TOKEN specified!")
-    sys.exit(1)
-
-SAMPLE_RANGE_NAME = calendar.month_name[8]
-
 # Getting mode, so we could define run function for local and Heroku setup
-
 if MODE == "dev":
     def run(upd):
         upd.start_polling()
 
 elif MODE == "prod":
     def run(upd):
-        port = int(os.environ.get("PORT", "8443"))
-        heroku_app_name = os.environ.get("HEROKU_APP_NAME")
+        heroku_app_name = HEROKU_APP
+        if HEROKU_APP is None:
+            logger.error("No HEROKU_APP specified!")
+            sys.exit(1)
+        port = int(HEROKU_PORT)
         upd.start_webhook(listen="0.0.0.0",
                           port=port,
                           url_path=TOKEN)
