@@ -21,13 +21,18 @@ class SheetService:
     def get_spreadsheet(self, sheet_id, range, include_grid_data):
         return self.sheet.get(spreadsheetId=sheet_id, ranges=range, includeGridData=include_grid_data).execute()
 
-    def read_sheet(self, sheet_id, range, major_dimension=None):
-        return self.sheet.values().get(spreadsheetId=sheet_id, range=range, majorDimension=major_dimension).execute()
+    def read_sheet(self, sheet_id, range, major_dimension=None, value_render_option='FORMATTED_VALUE'):
+        return self.sheet.values().get(spreadsheetId=sheet_id,
+                                       range=range,
+                                       majorDimension=major_dimension,
+                                       valueRenderOption=value_render_option) \
+            .execute()
 
     def read_sheet_multiple(self, sheet_id, ranges, major_dimension=None):
-        return self.sheet.values().batchGet(spreadsheetId=sheet_id, ranges=ranges,  majorDimension=major_dimension).execute()
+        return self.sheet.values().batchGet(spreadsheetId=sheet_id, ranges=ranges,
+                                            majorDimension=major_dimension).execute()
 
-    def write_sheet(self, sheet_id, range, values):
+    def write_append_sheet(self, sheet_id, range, values):
         body = {
             'values': values,
             'range': range
@@ -38,3 +43,38 @@ class SheetService:
             valueInputOption='USER_ENTERED',
             body=body).execute()
         return result.get('updates').get('updatedRows')
+
+    def write_sheet(self, sheet_id, range, values):
+        body = {
+            'values': values,
+            'range': range
+        }
+        result = self.sheet.values().update(
+            spreadsheetId=sheet_id,
+            range=range,
+            valueInputOption='USER_ENTERED',
+            body=body).execute()
+        return result['updatedRows']
+
+    def clear_sheet(self, sheet_id, range):
+        request = self.sheet.values().clear(spreadsheetId=sheet_id, range=range)
+        return request.execute()
+
+    def delete_rows(self, spreadsheet_id, sheet_id, start_index, end_index):
+        batch_update_spreadsheet_request_body = {
+            'requests': [
+                {
+                    "deleteDimension": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "dimension": "ROWS",
+                            "startIndex": start_index,
+                            "endIndex": end_index
+                        }
+                    }
+                },
+            ],
+        }
+        request = self.sheet.batchUpdate(spreadsheetId=spreadsheet_id,
+                                         body=batch_update_spreadsheet_request_body)
+        return request.execute()

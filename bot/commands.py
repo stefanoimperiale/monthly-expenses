@@ -6,20 +6,40 @@ from datetime import datetime, date
 import telegram
 from telegram.utils.helpers import mention_html
 from fastnumbers import fast_float
-from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, ParseMode
+from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, ParseMode, \
+    BotCommand
 from telegram.ext import ConversationHandler
 from telegram_bot_calendar import LSTEP
 
 from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_gain, get_chart_from_sheet, CURRENCY, \
-    get_sheet_min_max_month, get_table_from_sheet
+    get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_gains, delete_expense, delete_gain, \
+    get_sheet_report
 from env_variables import USER_ID
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
-keyboard = ['💸 New Expense', '🤑 New Gain', '📈 Show Table', '📊 Show Graph', '📋 Show Report', '📃 New Sheet',
+
+keyboard = ['💸 New Expense', '🤑 New Gain',
+            '📈 Show Table', '📊 Show Graph',
+            '🗑️💸 Delete Expense', '🗑️💰 Delete Gain',
+            '📋 Show Report', '📃 New Sheet',
             '⁉ Help']
-DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE = range(6)
+DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE, DELETE_ELEMENT = range(7)
+
+COMMANDS = {
+    'start': BotCommand('start', 'Start the bot'),
+    'cancel': BotCommand('cancel', 'Abort current operation'),
+    'add_expense': BotCommand('add_expense', 'Add a new expense in the sheet'),
+    'add_gain': BotCommand('add_gain', 'Add a new gain in the sheet'),
+    'show_table': BotCommand('show_table', 'Show the summary table of all the expenses and the gains'),
+    'show_chart': BotCommand('show_chart', 'Show a pie chart relative to the expenses'),
+    'delete_expense': BotCommand('delete_expense', 'Delete an expense from a sheet'),
+    'delete_gain': BotCommand('delete_gain', 'Delete a gain from a sheet'),
+    'show_report': BotCommand('show_report', 'Show the summary amounts of the month'),
+    'new_sheet': BotCommand('new_sheet', 'Create a new monthly sheet in the spreadsheet'),
+    'help': BotCommand('help', 'Get help for the bot usage')
+}
 
 
 def get_keyboard():
@@ -60,8 +80,13 @@ def start(update, context):
                              reply_markup=get_keyboard())
 
 
-def new_element(update, context):
-    context.user_data['element'] = keyboard.index(update.message.text)
+"""
+    NEW ELEMENT START
+"""
+
+
+def new_element(update, context, command=None):
+    context.user_data['element'] = keyboard.index(update.message.text if command is None else command)
     date_choose_keyboard = [[InlineKeyboardButton("👇 Today", callback_data='today'),
                              InlineKeyboardButton("📅 Calendar", callback_data='calendar')],
                             [InlineKeyboardButton('✖ Cancel', callback_data='cancel')]]
@@ -69,6 +94,11 @@ def new_element(update, context):
                              text='⚠ Insert the date of the element:',
                              reply_markup=InlineKeyboardMarkup(date_choose_keyboard))
     return DATE
+
+
+"""
+    NEW ELEMENT CHOOSE DATE
+"""
 
 
 def choose_date(update, context):
@@ -85,11 +115,12 @@ def choose_date(update, context):
             context.user_data['date'] = date.today()
             query.edit_message_text(text=f"📆 Date: {date.today().strftime('%d/%m/%Y')}\n\n"
                                          f"✍ Insert the description\n\n"
-                                         f"/cancel")
+                                         f"/{COMMANDS['cancel'].command}")
             return NAME
         else:
             query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is not present.\n\n"
-                                         f"📃 Create a new sheet for the selected month with /new_sheet command")
+                                         f"📃 Create a new sheet for the selected month "
+                                         f"with /{COMMANDS['new_sheet'].command} command")
             return ConversationHandler.END
 
     elif query.data == 'calendar':
@@ -100,13 +131,18 @@ def choose_date(update, context):
             context.user_data['date_min_max'] = date_min, date_max
             cal, step = MyStyleCalendar(max_date=date_max, min_date=date_min).build()
             query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
-                                    f"/cancel",
+                                    f"/{COMMANDS['cancel'].command}",
                                     reply_markup=cal)
             return SET_CALENDAR
         else:
             query.edit_message_text(text=f"⚠ Warning! No sheets are present.\n\n"
-                                         f"📃 Create a new one with /new_sheet command")
+                                         f"📃 Create a new one with /{COMMANDS['new_sheet'].command} command")
             return ConversationHandler.END
+
+
+"""
+    NEW ELEMENT CHOOSE WITH CALENDAR
+"""
 
 
 def calendar(update, context):
@@ -116,15 +152,20 @@ def calendar(update, context):
         query.data)
     if not result and key:
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
-                                f"/cancel",
+                                f"/{COMMANDS['cancel'].command}",
                                 reply_markup=key)
         return SET_CALENDAR
     elif result:
         context.user_data['date'] = result
         query.edit_message_text(text=f"📆 Date: {result.strftime('%d/%m/%Y')}\n\n"
                                      f"✍ Insert the description\n\n"
-                                     f"/cancel")
+                                     f"/{COMMANDS['cancel'].command}")
         return NAME
+
+
+"""
+    NEW ELEMENT ADD NAME
+"""
 
 
 def add_name(update, context):
@@ -134,8 +175,13 @@ def add_name(update, context):
                              text=f"📆 Date: {context.user_data['date'].strftime('%d/%m/%Y')}\n\n"
                                   f"✍ Description: {context.user_data['name']}\n\n"
                                   "💰 Add the amount\n\n"
-                                  "/cancel")
+                                  f"/{COMMANDS['cancel'].command}")
     return IMPORT
+
+
+"""
+    NEW ELEMENT ADD IMPORT
+"""
 
 
 def add_import(update, context):
@@ -145,7 +191,7 @@ def add_import(update, context):
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text="⚠ The amount is not correct! "
                                       "Only numbers with 2 decimal are allowed\n\n"
-                                      "/cancel")
+                                      f"/{COMMANDS['cancel'].command}")
         return IMPORT
 
     context.bot.sendChatAction(chat_id=update.effective_chat.id,
@@ -170,15 +216,25 @@ def add_import(update, context):
     return ConversationHandler.END
 
 
-def get_chart_date(update, context):
-    context.user_data['element'] = keyboard.index(update.message.text)
+"""
+    TABLE, CHART, DELETE ELEMENT START
+"""
+
+
+def get_chart_date(update, context, command=None):
+    context.user_data['element'] = keyboard.index(update.message.text if command is None else command)
     date_choose_keyboard = [[InlineKeyboardButton("👇 This Month", callback_data='this_month'),
                              InlineKeyboardButton("📅 Calendar", callback_data='calendar')],
                             [InlineKeyboardButton('✖ Cancel', callback_data='cancel')]]
     context.bot.send_message(chat_id=update.effective_chat.id,
-                             text='⚠ Select the month of the chart:',
+                             text='⚠ Select the month of the sheet:',
                              reply_markup=InlineKeyboardMarkup(date_choose_keyboard))
     return CHART_CALENDAR
+
+
+"""
+    TABLE, CHART, DELETE ELEMENT CHOOSE DATE
+"""
 
 
 def chart_calendar(update, context):
@@ -194,7 +250,7 @@ def chart_calendar(update, context):
             return __get_chart_or_table(update, context, today, query)
         else:
             query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is not present.\n\n"
-                                         f"📃 Create a new sheet for the selected month with /new_sheet command")
+                                         f"📃 Create a new sheet for the selected month with /{COMMANDS['new_sheet'].command} command")
             return ConversationHandler.END
 
     elif query.data == 'calendar':
@@ -206,13 +262,18 @@ def chart_calendar(update, context):
             cal.first_step = 'm'
             cal, step = cal.build()
             query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
-                                    f"/cancel",
+                                    f"/{COMMANDS['cancel'].command}",
                                     reply_markup=cal)
             return CHART_DATE
         else:
             query.edit_message_text(text=f"⚠ Warning! No sheets are present.\n\n"
-                                         f"📃 Create a new one with /new_sheet command")
+                                         f"📃 Create a new one with /{COMMANDS['new_sheet'].command} command")
             return ConversationHandler.END
+
+
+"""
+    TABLE, CHART, DELETE ELEMENT CHOOSE FROM CALENDAR
+"""
 
 
 def set_chart_date(update, context):
@@ -221,7 +282,7 @@ def set_chart_date(update, context):
     result, key, step = MyStyleCalendar(max_date=date_max, min_date=date_min).process(query.data)
     if step == 'm' and key:
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
-                                f"/cancel",
+                                f"/{COMMANDS['cancel'].command}",
                                 reply_markup=key)
         return CHART_DATE
     elif step == 'd':
@@ -234,23 +295,131 @@ def set_chart_date(update, context):
         return __get_chart_or_table(update, context, today, query)
 
 
-def __get_chart_or_table(update, context, date_, query):
-    query.edit_message_text(text='🔄 Retrieving the chart...')
+# DELETE RESPONSE
+def delete_element(update, context):
+    query = update.message.text
+    if query == '✖ Cancel':
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='👍 Cancelled.',
+                                 reply_markup=get_keyboard())
+    else:
+        values = context.user_data['values']
+        try:
+            index = values.index(query)
+        except ValueError:
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='❗ Element not recognized. '
+                                          'Use the keyboard buttons to select the element to remove')
+            return DELETE_ELEMENT
+
+        deleting_mess = context.bot.send_message(chat_id=update.effective_chat.id,
+                                                 text='🔄 Deleting...')
+        context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                                   action=telegram.ChatAction.TYPING)
+        date_ = context.user_data['date']
+
+        if context.user_data['element'] == 4:
+            delete_expense(date_, index)
+        elif context.user_data['element'] == 5:
+            delete_gain(date_, index)
+
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=deleting_mess.message_id)
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='👍 Element deleted',
+                                 reply_markup=get_keyboard())
+    return ConversationHandler.END
+
+
+# DELETE SECTION
+def __delete_element(update, context, date_, query):
+    query.edit_message_text(text='🔄 Retrieving data...')
     context.bot.sendChatAction(chat_id=update.effective_chat.id,
-                               action=telegram.ChatAction.UPLOAD_PHOTO)
+                               action=telegram.ChatAction.TYPING)
+    context.user_data['date'] = date_
+    # delete expense
+    if context.user_data['element'] == 4:
+        values = get_sheet_expenses(date_)
+        if len(values) > 0:
+            values = [' '.join(x) for x in values]
+            context.user_data['values'] = values
+            keys = ReplyKeyboardMarkup(build_menu(values, 1, header_buttons='✖ Cancel'),
+                                       resize_keyboard=True,
+                                       one_time_keyboard=True)
+            context.bot.delete_message(chat_id=update.effective_chat.id,
+                                       message_id=query.message.message_id)
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='📛 Choose the expense to remove',
+                                     reply_markup=keys)
+            return DELETE_ELEMENT
+        else:
+            query.edit_message_text(
+                text=f'⚠ No expense found, add new one with /{COMMANDS["add_expense"].command} command')
+
+    # delete gain
+    elif context.user_data['element'] == 5:
+        values = get_sheet_gains(date_)
+        if len(values) > 0:
+            values = [' '.join(x) for x in values]
+            context.user_data['values'] = values
+            keys = ReplyKeyboardMarkup(build_menu(values, 1, header_buttons='✖ Cancel'),
+                                       resize_keyboard=True,
+                                       one_time_keyboard=True)
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='📛 Choose the gain to remove',
+                                     reply_markup=keys)
+            return DELETE_ELEMENT
+        else:
+            query.edit_message_text(text=f'⚠ No gain found, add new one with /{COMMANDS["add_gain"].command} command')
+    return ConversationHandler.END
+
+
+# SHOW REPORT
+def __show_report(update, context, date_, query):
+    query.edit_message_text(text='🔄 Retrieving data...')
+    context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                               action=telegram.ChatAction.TYPING)
+    surplus, gains, expenses = get_sheet_report(date_)
+    query.edit_message_text(text=f'💹 Report for {date_.strftime("%B")}\n\n'
+                                 f'💰  TOTAL GAINS: {gains}\n\n'
+                                 f'💸  TOTAL EXPENSE: {expenses}\n\n'
+                                 f'🤑  SURPLUS: {surplus}')
+
+
+# CHART, TABLE SECTION
+def __get_chart_or_table(update, context, date_, query):
     chart_date = date_
-    image = ''
+    # get table
     if context.user_data['element'] == 2:
+        query.edit_message_text(text='🔄 Retrieving the table...')
+        context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                                   action=telegram.ChatAction.UPLOAD_PHOTO)
         image = get_table_from_sheet(chart_date)
+        caption = f'Summary Table for {chart_date.strftime("%B")}'
+    # get chart
     elif context.user_data['element'] == 3:
+        query.edit_message_text(text='🔄 Retrieving the chart...')
+        context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                                   action=telegram.ChatAction.UPLOAD_PHOTO)
         image = get_chart_from_sheet(chart_date)
+        caption = f'Expanses Pie Chart for {chart_date.strftime("%B")}'
+    # show report
+    elif context.user_data['element'] == 6:
+        return __show_report(update, context, date_, query)
+    # delete element
+    else:
+        return __delete_element(update, context, date_, query)
 
     if image is None:
         query.edit_message_text(text='⚠ No data found to create the table')
     else:
-        send_images_helper(context, update.effective_chat.id, [image],
-                           f'Expanses Pie Chart for {chart_date.strftime("%B")}')
+        send_images_helper(context, update.effective_chat.id, [image], caption=caption)
     return ConversationHandler.END
+
+
+"""
+    CANCEL COMMAND
+"""
 
 
 def cancel(update, context):
@@ -259,7 +428,11 @@ def cancel(update, context):
     return ConversationHandler.END
 
 
-# Error handler function
+"""
+    ERROR HANDLER FUNCTION
+"""
+
+
 def error(update, context):
     # add all the dev user_ids in this list. You can also add ids of channels or groups.
     # This is a personal bot, so the user is also the dev
@@ -294,5 +467,5 @@ def error(update, context):
            f"</code>"
     # and send it to the dev(s)
     for dev_id in devs:
-        context.bot.send_message(dev_id, text, parse_mode=ParseMode.HTML)
+        context.bot.send_message(dev_id, text, parse_mode=ParseMode.HTML, reply_markup=get_keyboard())
     raise

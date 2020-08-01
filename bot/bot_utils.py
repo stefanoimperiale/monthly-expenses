@@ -43,7 +43,7 @@ def add_new_sheet_element(date: datetime.date, name: str, amount: float, start_r
     values = [
         [date.strftime('%d/%m/%Y'), name, amount]
     ]
-    updated = SheetService().write_sheet(SPREADSHEET_ID, f'{month}!{start_range}', values)
+    updated = SheetService().write_append_sheet(SPREADSHEET_ID, f'{month}!{start_range}', values)
     return updated
 
 
@@ -90,7 +90,7 @@ def __get_data_from_sheet(data, template, imgkit_options, selector=None):
 def get_table_from_sheet(date):
     month = date.strftime("%B")
     result = SheetService().read_sheet_multiple(SPREADSHEET_ID,
-                                                [f'{month}!A2:C', f'{month}!E2:G', f'{month}!I2:J'],
+                                                [f'{month}!A2:C', f'{month}!E2:G', f'{month}!I2:K'],
                                                 major_dimension='COLUMNS')
     values = result.get('valueRanges', [])
     header = []
@@ -160,6 +160,44 @@ def get_sheet_min_max_month():
         return first_month, last_month
     else:
         return -1, -1
+
+
+def get_sheet_expenses(date, value_render_option='FORMATTED_VALUE'):
+    month = date.strftime("%B")
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!E3:G', value_render_option=value_render_option)
+    values = result.get('values', [])
+    return values
+
+
+def get_sheet_gains(date, value_render_option='FORMATTED_VALUE'):
+    month = date.strftime("%B")
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!A3:C', value_render_option=value_render_option)
+    values = result.get('values', [])
+    return values
+
+
+def delete_expense(date, index):
+    month = date.strftime("%B")
+    values = get_sheet_expenses(date, 'UNFORMATTED_VALUE')
+    del values[index]
+    values.append(["", "", ""])
+    SheetService().write_sheet(SPREADSHEET_ID, f'{month}!E3:G', values)
+
+
+def delete_gain(date, index):
+    month = date.strftime("%B")
+    values = get_sheet_gains(date, 'UNFORMATTED_VALUE')
+    del values[index]
+    values.append(["", "", ""])
+    SheetService().write_sheet(SPREADSHEET_ID, f'{month}!A3:C', values)
+
+
+def get_sheet_report(date):
+    month = date.strftime("%B")
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!I3:K3')
+    values = result.get('values', [])
+    print(values)
+    return values[0][0], values[0][1], values[0][2]
 
 
 class MyStyleCalendar(DetailedTelegramCalendar):
