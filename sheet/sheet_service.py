@@ -78,3 +78,31 @@ class SheetService:
         request = self.sheet.batchUpdate(spreadsheetId=spreadsheet_id,
                                          body=batch_update_spreadsheet_request_body)
         return request.execute()
+
+    def add_sheet(self, spreadsheet_id, title, optional_requests=None):
+        if optional_requests is None:
+            optional_requests = []
+        requests = [{
+            "addSheet": {
+                "properties": {
+                    "title": title,
+                }
+            }
+        }] + optional_requests
+        body = {
+            'requests': requests
+        }
+        response = self.sheet.batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body).execute()
+        response = response.get('replies')[0].get('addSheet')
+        return response['properties']
+
+    def update_sheet(self, spreadsheet_id, requests):
+        body = {
+            'requests': requests
+        }
+        response = self.sheet.batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body).execute()
+        return response

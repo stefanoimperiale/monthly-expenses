@@ -1,9 +1,13 @@
 import asyncio
+import calendar
 import io
+import json
 import logging
+import os
 import threading
 from datetime import datetime
 from decimal import Decimal
+from functools import reduce
 from re import sub
 from time import strptime
 
@@ -11,9 +15,9 @@ import imgkit
 import plotly.graph_objects as go
 from kaleido.scopes.plotly import PlotlyScope
 from telegram_bot_calendar import DetailedTelegramCalendar
-from itertools import zip_longest
 
 from bot.html_template import chart_template
+from bot.spreadsheet_format import get_sheet_format, table_titles
 from env_variables import SPREADSHEET_ID, CURRENCY
 from html_render.requests_html import HTML, HTMLSession
 from sheet.sheet_service import SheetService
@@ -21,6 +25,8 @@ from sheet.sheet_service import SheetService
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+repeatable_file = os.path.join(os.path.dirname(__file__), 'repeatable.json')
 
 
 def build_menu(buttons, n_cols, header_buttons=None, footer_buttons=None):
@@ -60,7 +66,7 @@ def convert_to_decimal(value):
     conversion.insert(0, value[0])
     amount = value[1]
     if CURRENCY == '€':
-        amount = amount.replace(',', '.')
+        amount = amount.replace('.', '').replace(',', '.')
     conversion.insert(1, float(Decimal(sub(r'[^\d.]', '', amount))))
     return conversion
 
@@ -77,8 +83,9 @@ def __get_data_from_sheet(data, template, imgkit_options, selector=None):
     text = threading.Thread(target=render, args=(html, loop))
     text.start()
     text.join()
-    # UBUNTU config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
-    config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
+    # UBUNTU 
+    config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
+    # config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
     content = html.html
     if selector is not None:
         content = html.find(selector)[0].html
@@ -196,8 +203,107 @@ def get_sheet_report(date):
     month = date.strftime("%B")
     result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!I3:K3')
     values = result.get('values', [])
-    print(values)
     return values[0][0], values[0][1], values[0][2]
+
+
+def __get_serial_number_from_date(date):
+    temp = datetime(1899, 12, 30)
+    delta = date - temp
+    return float(delta.days) + (float(delta.seconds) / 86400)
+
+
+def __get_values_for_update(values, date_):
+    return list(map(lambda val: {"values": [
+        {"userEnteredValue": {"numberValue": __get_serial_number_from_date(
+            datetime(date_.year, date_.month, min(val[0], calendar.monthrange(date_.year, date_.month)[1])))},
+         "userEnteredFormat": {
+             "numberFormat": {
+                 "type": "DATE",
+                 "pattern": "dd-mmm"
+             },
+             "horizontalAlignment": 'CENTER',
+             "verticalAlignment": 'MIDDLE',
+         }},
+        {"userEnteredValue": {"stringValue": val[1]}, "userEnteredFormat": {
+            "horizontalAlignment": 'CENTER',
+            "verticalAlignment": 'MIDDLE',
+        }},
+        {"userEnteredValue": {"numberValue": val[2]}, "userEnteredFormat": {
+            "numberFormat": {
+                "type": "CURRENCY"
+            },
+            "horizontalAlignment": 'CENTER',
+            "verticalAlignment": 'MIDDLE',
+        }}
+    ]}, values))
+
+
+def create_sheet_by_month(date):
+    sheet_service = SheetService()
+
+    sheet_properties = sheet_service.add_sheet(SPREADSHEET_ID, date.strftime("%B"))
+    sheet_id = sheet_properties['sheetId']
+    requests = get_sheet_format(sheet_id)
+    requests = requests + [
+        {
+            "updateCells": {
+                "rows": [
+                    {
+                        "values": table_titles
+                    }
+                ],
+                "fields": "*",
+                "start": {
+                    "sheetId": sheet_id,
+                    "rowIndex": 1,
+                    "columnIndex": 0
+                }
+            }
+        }
+    ]
+
+    # Check repeatable elements
+    with open(repeatable_file) as json_file:
+        data = json.load(json_file)
+        if len(data['gains']) > 0:
+            requests = requests + [
+                {
+                    "updateCells": {
+                        "rows": __get_values_for_update(data['gains'], date),
+                        "fields": "*",
+                        "start": {
+                            "sheetId": sheet_id,
+                            "rowIndex": 2,
+                            "columnIndex": 0
+                        }
+                    }
+                }
+            ]
+        if len(data['expendables']) > 0:
+            requests = requests + [
+                {
+                    "updateCells": {
+                        "rows": __get_values_for_update(data['expendables'], date),
+                        "fields": "*",
+                        "start": {
+                            "sheetId": sheet_id,
+                            "rowIndex": 2,
+                            "columnIndex": 4
+                        }
+                    }
+                }
+            ]
+
+    sheet_service.update_sheet(SPREADSHEET_ID, requests)
+
+
+def add_repeatable(data):
+    with open(repeatable_file, 'w') as outfile:
+        json.dump(data, outfile)
+
+
+def remove_repeatable(data):
+    pass
 
 
 class MyStyleCalendar(DetailedTelegramCalendar):

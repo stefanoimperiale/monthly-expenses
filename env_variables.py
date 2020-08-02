@@ -15,7 +15,7 @@ HEROKU_APP = os.getenv("HEROKU_APP_NAME")
 HEROKU_PORT = os.getenv("PORT", "8443")
 
 # Spreadsheet env
-SPREADSHEET_ID = os.getenv("SHEET_ID")
+SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 CURRENCY = os.getenv("CURRENCY")
 
 if MODE is None:

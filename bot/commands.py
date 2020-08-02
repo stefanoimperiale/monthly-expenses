@@ -1,3 +1,4 @@
+import calendar
 import logging
 import sys
 import traceback
@@ -13,7 +14,7 @@ from telegram_bot_calendar import LSTEP
 
 from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_gain, get_chart_from_sheet, CURRENCY, \
     get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_gains, delete_expense, delete_gain, \
-    get_sheet_report
+    get_sheet_report, create_sheet_by_month
 from env_variables import USER_ID
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -24,8 +25,10 @@ keyboard = ['💸 New Expense', '🤑 New Gain',
             '📈 Show Table', '📊 Show Graph',
             '🗑️💸 Delete Expense', '🗑️💰 Delete Gain',
             '📋 Show Report', '📃 New Sheet',
+            '🔁 Set new Repeatable', '🗑🔁 Delete a Repeatable',
             '⁉ Help']
-DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE, DELETE_ELEMENT = range(7)
+DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE, DELETE_ELEMENT, NEW_SHEET_CALENDAR, NEW_SHEET_DATE, \
+    ADD_SHEET = range(10)
 
 COMMANDS = {
     'start': BotCommand('start', 'Start the bot'),
@@ -38,6 +41,8 @@ COMMANDS = {
     'delete_gain': BotCommand('delete_gain', 'Delete a gain from a sheet'),
     'show_report': BotCommand('show_report', 'Show the summary amounts of the month'),
     'new_sheet': BotCommand('new_sheet', 'Create a new monthly sheet in the spreadsheet'),
+    'new_repeatable': BotCommand('new_repeatable', 'Add a new recurrent expense or gain when creating a new sheet'),
+    'delete_repeatable': BotCommand('delete_repeatable', 'Delete a recurrent expense or gain'),
     'help': BotCommand('help', 'Get help for the bot usage')
 }
 
@@ -127,7 +132,7 @@ def choose_date(update, context):
         if min_ != -1 and max_ != -1:
             today = date.today()
             date_min = date(today.year, min_, 1)
-            date_max = date(today.year, max_, 31)
+            date_max = date(today.year, max_, calendar.monthrange(today.year, max_)[1])
             context.user_data['date_min_max'] = date_min, date_max
             cal, step = MyStyleCalendar(max_date=date_max, min_date=date_min).build()
             query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
@@ -145,7 +150,7 @@ def choose_date(update, context):
 """
 
 
-def calendar(update, context):
+def calendar_set(update, context):
     query = update.callback_query
     date_min, date_max = context.user_data['date_min_max']
     result, key, step = MyStyleCalendar(max_date=date_max, min_date=date_min).process(
@@ -222,14 +227,15 @@ def add_import(update, context):
 
 
 def get_chart_date(update, context, command=None):
-    context.user_data['element'] = keyboard.index(update.message.text if command is None else command)
+    index = keyboard.index(update.message.text if command is None else command)
+    context.user_data['element'] = index
     date_choose_keyboard = [[InlineKeyboardButton("👇 This Month", callback_data='this_month'),
                              InlineKeyboardButton("📅 Calendar", callback_data='calendar')],
                             [InlineKeyboardButton('✖ Cancel', callback_data='cancel')]]
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='⚠ Select the month of the sheet:',
                              reply_markup=InlineKeyboardMarkup(date_choose_keyboard))
-    return CHART_CALENDAR
+    return NEW_SHEET_CALENDAR if index == 7 else CHART_CALENDAR
 
 
 """
@@ -250,13 +256,14 @@ def chart_calendar(update, context):
             return __get_chart_or_table(update, context, today, query)
         else:
             query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is not present.\n\n"
-                                         f"📃 Create a new sheet for the selected month with /{COMMANDS['new_sheet'].command} command")
+                                         f"📃 Create a new sheet for the selected month "
+                                         f"with /{COMMANDS['new_sheet'].command} command")
             return ConversationHandler.END
 
     elif query.data == 'calendar':
         if min_ != -1 and max_ != -1:
             date_min = date(today.year, min_, 1)
-            date_max = date(today.year, max_, 31)
+            date_max = date(today.year, max_, calendar.monthrange(today.year, max_)[1])
             context.user_data['date_min_max'] = date_min, date_max
             cal = MyStyleCalendar(max_date=date_max, min_date=date_min)
             cal.first_step = 'm'
@@ -284,7 +291,7 @@ def set_chart_date(update, context):
         query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
                                 f"/{COMMANDS['cancel'].command}",
                                 reply_markup=key)
-        return CHART_DATE
+        return NEW_SHEET_DATE if context.user_data['element'] == 7 else CHART_DATE
     elif step == 'd':
         params = query.data.split("_")
         params = dict(
@@ -292,7 +299,9 @@ def set_chart_date(update, context):
         month = int(params["month"])
         today = datetime.today()
         today = date(today.year, month, today.day)
-        return __get_chart_or_table(update, context, today, query)
+        return __create_new_sheet(update, context, today, query) \
+            if context.user_data['element'] == 7 \
+            else __get_chart_or_table(update, context, today, query)
 
 
 # DELETE RESPONSE
@@ -414,6 +423,60 @@ def __get_chart_or_table(update, context, date_, query):
         query.edit_message_text(text='⚠ No data found to create the table')
     else:
         send_images_helper(context, update.effective_chat.id, [image], caption=caption)
+    return ConversationHandler.END
+
+
+"""
+    NEW SHEET CALENDAR
+"""
+
+
+def __create_new_sheet(update, context, date_, query):
+    query.edit_message_text(text='🔄 Creating a new sheet...')
+    context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                               action=telegram.ChatAction.TYPING)
+    create_sheet_by_month(date_)
+    query.edit_message_text(text=f'👍 New sheet created for the month {date_.strftime("%B")}')
+    return ConversationHandler.END
+
+
+def new_sheet_date_choose(update, context):
+    query = update.callback_query
+    if query.data == 'cancel':
+        query.edit_message_text(text='❌ Cancelled')
+        return ConversationHandler.END
+
+    min_, max_ = get_sheet_min_max_month()
+    today = date.today()
+    if query.data == 'this_month':
+        if today.month > max_:
+            return __create_new_sheet(update, context, today, query)
+        else:
+            if max_ < 12:
+                query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is already present.\n\n"
+                                             f"📃 Create a new expense or a new gain "
+                                             f"with /{COMMANDS['add_expense'].command} "
+                                             f"or /{COMMANDS['add_gain'].command} command")
+            else:
+                query.edit_message_text(text=f"⚠ This spreadsheet is full, create a new one in Google Spreadsheet"
+                                             f"and set the new SPREADSHEET_ID environment variable\n\n")
+
+    elif query.data == 'calendar':
+        if max_ < 12:
+            date_min = date(today.year, max_ + 1, 1)
+            date_max = date(today.year, 12, 31)
+            context.user_data['date_min_max'] = date_min, date_max
+            cal = MyStyleCalendar(max_date=date_max, min_date=date_min)
+            cal.first_step = 'm'
+            cal, step = cal.build()
+            query.edit_message_text(f"👉 Select {LSTEP[step]}\n\n"
+                                    f"/{COMMANDS['cancel'].command}",
+                                    reply_markup=cal)
+            return NEW_SHEET_DATE
+        else:
+            query.edit_message_text(text=f"⚠ This spreadsheet is full, create a new one in Google Spreadsheet"
+                                         f"and set the new SPREADSHEET_ID environment variable\n\n")
+
     return ConversationHandler.END
 
 
