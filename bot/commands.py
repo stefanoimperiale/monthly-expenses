@@ -12,37 +12,38 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMa
 from telegram.ext import ConversationHandler
 from telegram_bot_calendar import LSTEP
 
-from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_gain, get_chart_from_sheet, CURRENCY, \
-    get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_gains, delete_expense, delete_gain, \
-    get_sheet_report, create_sheet_by_month
+from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_earning, get_chart_from_sheet, CURRENCY, \
+    get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_earnings, delete_expense, \
+    delete_earning, \
+    get_sheet_report, create_sheet_by_month, add_recurrent
 from env_variables import USER_ID
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-keyboard = ['💸 New Expense', '🤑 New Gain',
+keyboard = ['💸 New Expense', '🤑 New Earning',
             '📈 Show Table', '📊 Show Graph',
-            '🗑️💸 Delete Expense', '🗑️💰 Delete Gain',
+            '🗑️💸 Delete Expense', '🗑️💰 Delete Earning',
             '📋 Show Report', '📃 New Sheet',
-            '🔁 Set new Repeatable', '🗑🔁 Delete a Repeatable',
+            '🔁 Set new Recurrent', '🗑🔁 Delete a Recurrent',
             '⁉ Help']
 DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE, DELETE_ELEMENT, NEW_SHEET_CALENDAR, NEW_SHEET_DATE, \
-    ADD_SHEET = range(10)
+ADD_SHEET, SELECT_TYPE, RECURRENT_DATE, RECURRENT_NAME, RECURRENT_IMPORT, RECURRENT_DELETE = range(15)
 
 COMMANDS = {
     'start': BotCommand('start', 'Start the bot'),
     'cancel': BotCommand('cancel', 'Abort current operation'),
     'add_expense': BotCommand('add_expense', 'Add a new expense in the sheet'),
-    'add_gain': BotCommand('add_gain', 'Add a new gain in the sheet'),
-    'show_table': BotCommand('show_table', 'Show the summary table of all the expenses and the gains'),
+    'add_earning': BotCommand('add_earning', 'Add a new earning in the sheet'),
+    'show_table': BotCommand('show_table', 'Show the summary table of all the expenses and the earnings'),
     'show_chart': BotCommand('show_chart', 'Show a pie chart relative to the expenses'),
     'delete_expense': BotCommand('delete_expense', 'Delete an expense from a sheet'),
-    'delete_gain': BotCommand('delete_gain', 'Delete a gain from a sheet'),
+    'delete_earning': BotCommand('delete_earning', 'Delete a earning from a sheet'),
     'show_report': BotCommand('show_report', 'Show the summary amounts of the month'),
     'new_sheet': BotCommand('new_sheet', 'Create a new monthly sheet in the spreadsheet'),
-    'new_repeatable': BotCommand('new_repeatable', 'Add a new recurrent expense or gain when creating a new sheet'),
-    'delete_repeatable': BotCommand('delete_repeatable', 'Delete a recurrent expense or gain'),
+    'new_recurrent': BotCommand('new_recurrent', 'Add a new recurrent expense or earning when creating a new sheet'),
+    'delete_recurrent': BotCommand('delete_recurrent', 'Delete a recurrent expense or earning'),
     'help': BotCommand('help', 'Get help for the bot usage')
 }
 
@@ -205,7 +206,7 @@ def add_import(update, context):
     if context.user_data['element'] == 0:
         updated = add_new_expense(context.user_data['date'], context.user_data['name'], amount)
     elif context.user_data['element'] == 1:
-        updated = add_new_gain(context.user_data['date'], context.user_data['name'], amount)
+        updated = add_new_earning(context.user_data['date'], context.user_data['name'], amount)
     else:
         updated = 0
 
@@ -330,7 +331,7 @@ def delete_element(update, context):
         if context.user_data['element'] == 4:
             delete_expense(date_, index)
         elif context.user_data['element'] == 5:
-            delete_gain(date_, index)
+            delete_earning(date_, index)
 
         context.bot.delete_message(chat_id=update.effective_chat.id,
                                    message_id=deleting_mess.message_id)
@@ -365,9 +366,9 @@ def __delete_element(update, context, date_, query):
             query.edit_message_text(
                 text=f'⚠ No expense found, add new one with /{COMMANDS["add_expense"].command} command')
 
-    # delete gain
+    # delete earning
     elif context.user_data['element'] == 5:
-        values = get_sheet_gains(date_)
+        values = get_sheet_earnings(date_)
         if len(values) > 0:
             values = [' '.join(x) for x in values]
             context.user_data['values'] = values
@@ -375,11 +376,12 @@ def __delete_element(update, context, date_, query):
                                        resize_keyboard=True,
                                        one_time_keyboard=True)
             context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text='📛 Choose the gain to remove',
+                                     text='📛 Choose the earning to remove',
                                      reply_markup=keys)
             return DELETE_ELEMENT
         else:
-            query.edit_message_text(text=f'⚠ No gain found, add new one with /{COMMANDS["add_gain"].command} command')
+            query.edit_message_text(
+                text=f'⚠ No earning found, add new one with /{COMMANDS["add_earning"].command} command')
     return ConversationHandler.END
 
 
@@ -388,9 +390,9 @@ def __show_report(update, context, date_, query):
     query.edit_message_text(text='🔄 Retrieving data...')
     context.bot.sendChatAction(chat_id=update.effective_chat.id,
                                action=telegram.ChatAction.TYPING)
-    surplus, gains, expenses = get_sheet_report(date_)
+    surplus, earnings, expenses = get_sheet_report(date_)
     query.edit_message_text(text=f'💹 Report for {date_.strftime("%B")}\n\n'
-                                 f'💰  TOTAL GAINS: {gains}\n\n'
+                                 f'💰  TOTAL EARNINGS: {earnings}\n\n'
                                  f'💸  TOTAL EXPENSE: {expenses}\n\n'
                                  f'🤑  SURPLUS: {surplus}')
 
@@ -454,9 +456,9 @@ def new_sheet_date_choose(update, context):
         else:
             if max_ < 12:
                 query.edit_message_text(text=f"⚠ Warning! The month '{today.strftime('%B')}' is already present.\n\n"
-                                             f"📃 Create a new expense or a new gain "
+                                             f"📃 Create a new expense or a new earning "
                                              f"with /{COMMANDS['add_expense'].command} "
-                                             f"or /{COMMANDS['add_gain'].command} command")
+                                             f"or /{COMMANDS['add_earning'].command} command")
             else:
                 query.edit_message_text(text=f"⚠ This spreadsheet is full, create a new one in Google Spreadsheet"
                                              f"and set the new SPREADSHEET_ID environment variable\n\n")
@@ -478,6 +480,91 @@ def new_sheet_date_choose(update, context):
                                          f"and set the new SPREADSHEET_ID environment variable\n\n")
 
     return ConversationHandler.END
+
+
+"""
+    RECURRENT HANDLERS
+"""
+
+
+def new_recurrent_type(update, context):
+    recurrent_choose_keyboard = [[InlineKeyboardButton("💸 Expense", callback_data='expenses'),
+                                  InlineKeyboardButton("💰 Earning", callback_data='earnings')],
+                                 [InlineKeyboardButton('✖ Cancel', callback_data='cancel')]]
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text="👉 Select element type\n\n"
+                                  f"/{COMMANDS['cancel'].command}",
+                             reply_markup=InlineKeyboardMarkup(recurrent_choose_keyboard))
+    return SELECT_TYPE
+
+
+def select_recurrent_date(update, context):
+    query = update.callback_query
+    if query.data == 'cancel':
+        query.edit_message_text(text='❌ Cancelled')
+        return ConversationHandler.END
+
+    context.user_data['type'] = query.data
+    date_min = date(2019, 7, 1)
+    date_max = date(2019, 7, 31)
+    context.user_data['date_min_max'] = date_min, date_max
+    calendar_ = MyStyleCalendar(max_date=date_max, min_date=date_min, current_date=date_min)
+    calendar_.days_of_week = {'en': ["", "", "", "", "", "", ""]}
+    calendar_.nav_buttons = {'d': [" ", " ", " "]}
+    cal, step = calendar_.build()
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text="👉 Select the day of the recurrent element\n\n"
+                                  f"/{COMMANDS['cancel'].command}",
+                             reply_markup=cal)
+    return RECURRENT_DATE
+
+
+def new_recurrent_name(update, context):
+    query = update.callback_query
+    date_min, date_max = context.user_data['date_min_max']
+    result, key, step = MyStyleCalendar(max_date=date_max, min_date=date_min).process(query.data)
+    if result:
+        context.user_data['day'] = result.day
+        query.edit_message_text(text=f"📆 Date: {result.day} of every month\n\n"
+                                     f"✍ Insert the description\n\n"
+                                     f"/{COMMANDS['cancel'].command}")
+        return RECURRENT_NAME
+
+
+def new_recurrent_import(update, context):
+    context.user_data['name'] = update.message.text
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text=f"📆 Date: {context.user_data['day']} of every month\n\n"
+                                  f"✍ Description: {context.user_data['name']}\n\n"
+                                  "💰 Add the amount\n\n"
+                                  f"/{COMMANDS['cancel'].command}")
+    return RECURRENT_IMPORT
+
+
+def new_recurrent_insert(update, context):
+    message = update.message.text
+    amount = round(fast_float(message, default=-1), 2)
+    if amount == -1:
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text="⚠ The amount is not correct! "
+                                      "Only numbers with 2 decimal are allowed\n\n"
+                                      f"/{COMMANDS['cancel'].command}")
+        return RECURRENT_IMPORT
+
+    context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                               action=telegram.ChatAction.TYPING)
+    add_recurrent(context.user_data['type'], context.user_data['day'], context.user_data['name'], amount)
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text=f"✅ New recurrent element added!\n\n"
+                                  f"📆 Date: {context.user_data['day']} of every month\n"
+                                  f"✍ Description: {context.user_data['name']}\n"
+                                  f"💰 Amount: {CURRENCY}{amount}\n")
+
+    return ConversationHandler.END
+
+
+def select_delete_recurrent(update, context, command):
+    pass
 
 
 """

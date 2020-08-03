@@ -11,7 +11,7 @@ __second_table_color = {
     'blue': 241 / 255,
 }
 
-__gain_header_color = {
+__earning_header_color = {
     'red': 155 / 255,
     'green': 187 / 255,
     'blue': 89 / 255
@@ -30,7 +30,7 @@ __summary_header_color = {
 
 def get_sheet_format(sheet_id):
     start_column = 0
-    end_columns = {4: __gain_header_color, 8: __expense_header_color, 11: __summary_header_color}
+    end_columns = {4: __earning_header_color, 8: __expense_header_color, 11: __summary_header_color}
     table_format = []
     for col, header in end_columns.items():
         table_format.append({
@@ -306,7 +306,7 @@ def get_sheet_format(sheet_id):
                             ]
                         },
                         "format": {
-                            "backgroundColor": __gain_header_color
+                            "backgroundColor": __earning_header_color
                         }
                     }
                 }
@@ -347,7 +347,7 @@ table_titles = [
      "userEnteredFormat": {"horizontalAlignment": 'CENTER', "verticalAlignment": 'MIDDLE'}},
     {"userEnteredValue": {"stringValue": "Description"},
      "userEnteredFormat": {"horizontalAlignment": 'CENTER', "verticalAlignment": 'MIDDLE'}},
-    {"userEnteredValue": {"stringValue": "Gains"},
+    {"userEnteredValue": {"stringValue": "Earnings"},
      "userEnteredFormat": {"horizontalAlignment": 'CENTER', "verticalAlignment": 'MIDDLE'}},
     {"userEnteredValue": {"stringValue": ""}},
     {"userEnteredValue": {"stringValue": "Date"},
@@ -359,7 +359,7 @@ table_titles = [
     {"userEnteredValue": {"stringValue": ""}},
     {"userEnteredValue": {"stringValue": "Surplus"},
      "userEnteredFormat": {"horizontalAlignment": 'CENTER', "verticalAlignment": 'MIDDLE'}},
-    {"userEnteredValue": {"stringValue": "Tot Gains"},
+    {"userEnteredValue": {"stringValue": "Tot earnings"},
      "userEnteredFormat": {"horizontalAlignment": 'CENTER', "verticalAlignment": 'MIDDLE'}},
     {"userEnteredValue": {"stringValue": "Tot Expenses"},
      "userEnteredFormat": {"horizontalAlignment": 'CENTER', "verticalAlignment": 'MIDDLE'}},

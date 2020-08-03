@@ -8,6 +8,7 @@ import threading
 from datetime import datetime
 from decimal import Decimal
 from functools import reduce
+from json import JSONDecodeError
 from re import sub
 from time import strptime
 
@@ -26,7 +27,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-repeatable_file = os.path.join(os.path.dirname(__file__), 'repeatable.json')
+recurrent_file = os.path.join(os.path.dirname(__file__), 'recurrent.json')
 
 
 def build_menu(buttons, n_cols, header_buttons=None, footer_buttons=None):
@@ -57,7 +58,7 @@ def add_new_expense(date: datetime.date, name: str, amount: float):
     return add_new_sheet_element(date, name, amount, 'E3')
 
 
-def add_new_gain(date: datetime.date, name: str, amount: float):
+def add_new_earning(date: datetime.date, name: str, amount: float):
     return add_new_sheet_element(date, name, amount, 'A3')
 
 
@@ -83,9 +84,9 @@ def __get_data_from_sheet(data, template, imgkit_options, selector=None):
     text = threading.Thread(target=render, args=(html, loop))
     text.start()
     text.join()
-    # UBUNTU 
-    config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
-    # config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
+    # HEROKU
+    # config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
+    config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
     content = html.html
     if selector is not None:
         content = html.find(selector)[0].html
@@ -176,7 +177,7 @@ def get_sheet_expenses(date, value_render_option='FORMATTED_VALUE'):
     return values
 
 
-def get_sheet_gains(date, value_render_option='FORMATTED_VALUE'):
+def get_sheet_earnings(date, value_render_option='FORMATTED_VALUE'):
     month = date.strftime("%B")
     result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!A3:C', value_render_option=value_render_option)
     values = result.get('values', [])
@@ -191,9 +192,9 @@ def delete_expense(date, index):
     SheetService().write_sheet(SPREADSHEET_ID, f'{month}!E3:G', values)
 
 
-def delete_gain(date, index):
+def delete_earning(date, index):
     month = date.strftime("%B")
-    values = get_sheet_gains(date, 'UNFORMATTED_VALUE')
+    values = get_sheet_earnings(date, 'UNFORMATTED_VALUE')
     del values[index]
     values.append(["", "", ""])
     SheetService().write_sheet(SPREADSHEET_ID, f'{month}!A3:C', values)
@@ -216,14 +217,14 @@ def __get_values_for_update(values, date_):
     return list(map(lambda val: {"values": [
         {"userEnteredValue": {"numberValue": __get_serial_number_from_date(
             datetime(date_.year, date_.month, min(val[0], calendar.monthrange(date_.year, date_.month)[1])))},
-         "userEnteredFormat": {
-             "numberFormat": {
-                 "type": "DATE",
-                 "pattern": "dd-mmm"
-             },
-             "horizontalAlignment": 'CENTER',
-             "verticalAlignment": 'MIDDLE',
-         }},
+            "userEnteredFormat": {
+                "numberFormat": {
+                    "type": "DATE",
+                    "pattern": "dd-mmm"
+                },
+                "horizontalAlignment": 'CENTER',
+                "verticalAlignment": 'MIDDLE',
+            }},
         {"userEnteredValue": {"stringValue": val[1]}, "userEnteredFormat": {
             "horizontalAlignment": 'CENTER',
             "verticalAlignment": 'MIDDLE',
@@ -262,47 +263,60 @@ def create_sheet_by_month(date):
         }
     ]
 
-    # Check repeatable elements
-    with open(repeatable_file) as json_file:
-        data = json.load(json_file)
-        if len(data['gains']) > 0:
-            requests = requests + [
-                {
-                    "updateCells": {
-                        "rows": __get_values_for_update(data['gains'], date),
-                        "fields": "*",
-                        "start": {
-                            "sheetId": sheet_id,
-                            "rowIndex": 2,
-                            "columnIndex": 0
+    # Check recurrent elements
+    with open(recurrent_file) as json_file:
+        try:
+            data = json.load(json_file)
+            if len(data['earnings']) > 0:
+                requests = requests + [
+                    {
+                        "updateCells": {
+                            "rows": __get_values_for_update(data['earnings'], date),
+                            "fields": "*",
+                            "start": {
+                                "sheetId": sheet_id,
+                                "rowIndex": 2,
+                                "columnIndex": 0
+                            }
                         }
                     }
-                }
-            ]
-        if len(data['expendables']) > 0:
-            requests = requests + [
-                {
-                    "updateCells": {
-                        "rows": __get_values_for_update(data['expendables'], date),
-                        "fields": "*",
-                        "start": {
-                            "sheetId": sheet_id,
-                            "rowIndex": 2,
-                            "columnIndex": 4
+                ]
+            if len(data['expenses']) > 0:
+                requests = requests + [
+                    {
+                        "updateCells": {
+                            "rows": __get_values_for_update(data['expenses'], date),
+                            "fields": "*",
+                            "start": {
+                                "sheetId": sheet_id,
+                                "rowIndex": 2,
+                                "columnIndex": 4
+                            }
                         }
                     }
-                }
-            ]
+                ]
+        except JSONDecodeError:
+            pass
 
     sheet_service.update_sheet(SPREADSHEET_ID, requests)
 
 
-def add_repeatable(data):
-    with open(repeatable_file, 'w') as outfile:
+def add_recurrent(elem_type, day, name, amount):
+    with open(recurrent_file, 'a+') as infile:
+        infile.seek(0)
+        try:
+            data = json.load(infile)
+        except JSONDecodeError:
+            data = {
+                "earnings": [],
+                "expenses": []
+            }
+    with open(recurrent_file, 'w') as outfile:
+        data[elem_type].append([day, name, amount])
         json.dump(data, outfile)
 
 
-def remove_repeatable(data):
+def remove_recurrent(data):
     pass
 
 
@@ -311,7 +325,6 @@ class MyStyleCalendar(DetailedTelegramCalendar):
     prev_button = "⬅️"
     next_button = "➡️"
     # you do not want empty cells when month and year are being selected
-    empty_month_button = ""
-    empty_year_button = ""
+    empty_month_button = "❌"
+    empty_year_button = "❌"
     first_step = "d"
-    middle_button_year = ''
