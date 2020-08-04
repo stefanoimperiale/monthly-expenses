@@ -140,7 +140,8 @@ def get_chart_from_sheet(date):
     text = threading.Thread(target=render, args=(html, loop))
     text.start()
     text.join()
-    # UBUNTU config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
+    # HEROKU PATH
+    # config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
     config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
     content = html.find('#content')[0].html
     img = imgkit.from_string(content, False, config=config, options={
