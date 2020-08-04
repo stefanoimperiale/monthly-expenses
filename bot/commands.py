@@ -12,10 +12,9 @@ from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMa
 from telegram.ext import ConversationHandler
 from telegram_bot_calendar import LSTEP
 
-from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_earning, get_chart_from_sheet, CURRENCY, \
-    get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_earnings, delete_expense, \
-    delete_earning, \
-    get_sheet_report, create_sheet_by_month, add_recurrent
+from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_earning, get_chart_from_sheet, \
+    CURRENCY, get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_earnings, delete_expense, \
+    delete_earning, get_sheet_report, create_sheet_by_month, add_recurrent, get_recurrent_elements, remove_recurrent
 from env_variables import USER_ID
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -29,7 +28,8 @@ keyboard = ['💸 New Expense', '🤑 New Earning',
             '🔁 Set new Recurrent', '🗑🔁 Delete a Recurrent',
             '⁉ Help']
 DATE, SET_CALENDAR, NAME, IMPORT, CHART_CALENDAR, CHART_DATE, DELETE_ELEMENT, NEW_SHEET_CALENDAR, NEW_SHEET_DATE, \
-ADD_SHEET, SELECT_TYPE, RECURRENT_DATE, RECURRENT_NAME, RECURRENT_IMPORT, RECURRENT_DELETE = range(15)
+SELECT_TYPE, RECURRENT_DATE, RECURRENT_NAME, RECURRENT_IMPORT, RECURRENT_DELETE, \
+RECURRENT_CONFIRM_DELETE = range(15)
 
 COMMANDS = {
     'start': BotCommand('start', 'Start the bot'),
@@ -487,7 +487,8 @@ def new_sheet_date_choose(update, context):
 """
 
 
-def new_recurrent_type(update, context):
+def new_recurrent_type(update, context, command=None):
+    operation_index = keyboard.index(update.message.text if command is None else command)
     recurrent_choose_keyboard = [[InlineKeyboardButton("💸 Expense", callback_data='expenses'),
                                   InlineKeyboardButton("💰 Earning", callback_data='earnings')],
                                  [InlineKeyboardButton('✖ Cancel', callback_data='cancel')]]
@@ -495,7 +496,7 @@ def new_recurrent_type(update, context):
                              text="👉 Select element type\n\n"
                                   f"/{COMMANDS['cancel'].command}",
                              reply_markup=InlineKeyboardMarkup(recurrent_choose_keyboard))
-    return SELECT_TYPE
+    return SELECT_TYPE if operation_index == 8 else RECURRENT_DELETE
 
 
 def select_recurrent_date(update, context):
@@ -563,8 +564,66 @@ def new_recurrent_insert(update, context):
     return ConversationHandler.END
 
 
-def select_delete_recurrent(update, context, command):
-    pass
+def select_delete_recurrent(update, context):
+    query = update.callback_query
+    type_ = query.data
+    if type_ == 'cancel':
+        query.edit_message_text(text='❌ Cancelled')
+        return ConversationHandler.END
+
+    context.user_data['type'] = type_
+    query.edit_message_text(text='🔄 Retrieving data...')
+    context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                               action=telegram.ChatAction.TYPING)
+    values = get_recurrent_elements(type_)
+    if len(values) > 0:
+        values = list(
+            map(lambda val: f'Every {val[0]} of the month  --  {val[1]}  --  {CURRENCY} {"{:.2f}".format(val[2])}',
+                values))
+        context.user_data['values'] = values
+        keys = ReplyKeyboardMarkup(build_menu(values, 1, header_buttons='✖ Cancel'),
+                                   resize_keyboard=True,
+                                   one_time_keyboard=True)
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=query.message.message_id)
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text=f'📛 Choose the recurrent {type_[:-1]} to remove',
+                                 reply_markup=keys)
+        return RECURRENT_CONFIRM_DELETE
+    else:
+        query.edit_message_text(
+            text=f'⚠ No recurrent {type_[:-1]} found, add new one with /{COMMANDS["new_recurrent"].command} command')
+
+
+def confirm_delete_recurrent(update, context):
+    query = update.message.text
+    if query == '✖ Cancel':
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='👍 Cancelled.',
+                                 reply_markup=get_keyboard())
+    else:
+        values = context.user_data['values']
+        try:
+            index = values.index(query)
+        except ValueError:
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text='❗ Element not recognized. '
+                                          'Use the keyboard buttons to select the element to remove')
+            return RECURRENT_DELETE
+
+        deleting_mess = context.bot.send_message(chat_id=update.effective_chat.id,
+                                                 text='🔄 Deleting...')
+        context.bot.sendChatAction(chat_id=update.effective_chat.id,
+                                   action=telegram.ChatAction.TYPING)
+        elem_type = context.user_data['type']
+        remove_recurrent(elem_type, index)
+
+        context.bot.delete_message(chat_id=update.effective_chat.id,
+                                   message_id=deleting_mess.message_id)
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='👍 Element deleted',
+                                 reply_markup=get_keyboard())
+    return ConversationHandler.END
 
 
 """
@@ -576,6 +635,22 @@ def cancel(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='❌ Cancelled')
     return ConversationHandler.END
+
+
+"""
+    HELP COMMAND
+"""
+
+
+def help_command(update, context):
+    nl = '\n'
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text=f"⚙️ Commands:\n\n"
+                                  f"{nl.join(f'• /{key} - {val.description}' for key, val in COMMANDS.items())}"
+                                  "\n\n\n❓ Have trouble? \n"
+                                  "• Visit the project page on github\n"
+                                  "https://github.com/stefanoimperiale/monthly-expenses"
+                             )
 
 
 """

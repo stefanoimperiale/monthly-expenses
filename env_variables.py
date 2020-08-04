@@ -25,7 +25,7 @@ if TOKEN is None:
     logger.error("No TOKEN specified!")
     sys.exit(1)
 if SPREADSHEET_ID is None:
-    logger.error("No SHEET_ID specified!")
+    logger.error("No SPREADSHEET_ID specified!")
     sys.exit(1)
 if USER_ID is None:
     logger.error("No USER_ID specified!")

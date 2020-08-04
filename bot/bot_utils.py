@@ -7,7 +7,6 @@ import os
 import threading
 from datetime import datetime
 from decimal import Decimal
-from functools import reduce
 from json import JSONDecodeError
 from re import sub
 from time import strptime
@@ -316,8 +315,22 @@ def add_recurrent(elem_type, day, name, amount):
         json.dump(data, outfile)
 
 
-def remove_recurrent(data):
-    pass
+def get_recurrent_elements(elem_type):
+    with open(recurrent_file, 'a+') as infile:
+        infile.seek(0)
+        try:
+            data = json.load(infile)
+            return data[elem_type]
+        except JSONDecodeError:
+            return []
+
+
+def remove_recurrent(elem_type, index):
+    with open(recurrent_file, 'r') as infile:
+        data = json.load(infile)
+    with open(recurrent_file, 'w') as outfile:
+        del data[elem_type][index]
+        json.dump(data, outfile)
 
 
 class MyStyleCalendar(DetailedTelegramCalendar):
