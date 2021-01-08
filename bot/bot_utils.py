@@ -162,8 +162,13 @@ def get_sheet_min_max_month():
     if len(sheets) > 0:
         first = sheets[0]
         last = sheets[-1]
-        first_month = strptime(first['properties']['title'], '%B').tm_mon
-        last_month = strptime(last['properties']['title'], '%B').tm_mon
+        try:
+          first_month = strptime(first['properties']['title'], '%B').tm_mon
+          last_month = strptime(last['properties']['title'], '%B').tm_mon
+        except ValueError as e:
+          print ('error type: ', type (e))
+          return -1, -1
+        
         logger.info('first month %s, last month %s', first_month, last_month)
         return first_month, last_month
     else:
