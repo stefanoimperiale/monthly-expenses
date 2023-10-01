@@ -85,11 +85,10 @@ def __get_data_from_sheet(data, template, imgkit_options, selector=None):
     text.join()
     # HEROKU
     # config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
-    config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
     content = html.html
     if selector is not None:
         content = html.find(selector)[0].html
-    img = imgkit.from_string(content, False, config=config, options=imgkit_options)
+    img = imgkit.from_string(content, False, options=imgkit_options)
     str_file = io.BytesIO(img)
     return str_file
 
@@ -142,9 +141,8 @@ def get_chart_from_sheet(date):
     text.join()
     # HEROKU PATH
     # config = imgkit.config(wkhtmltoimage='.apt/usr/local/bin/wkhtmltoimage')
-    config = imgkit.config(wkhtmltoimage='C:\\Program Files\\wkhtmltopdf\\bin\\wkhtmltoimage.exe')
     content = html.find('#content')[0].html
-    img = imgkit.from_string(content, False, config=config, options={
+    img = imgkit.from_string(content, False, options={
         'format': 'png',
         'crop-w': '650',
         'crop-x': '150',
