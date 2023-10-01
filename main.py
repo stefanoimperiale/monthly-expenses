@@ -24,8 +24,8 @@ elif MODE == "prod":
         port = int(SERVER_PORT)
         upd.start_webhook(listen="0.0.0.0",
                           port=port,
-                          url_path=TOKEN)
-        upd.bot.set_webhook(f"https://{SERVER_URL}/{TOKEN}")
+                          url_path=TOKEN,
+                          webhook_url=f"https://{SERVER_URL}/{TOKEN}")
 
 else:
     logger.error("No MODE specified!")
