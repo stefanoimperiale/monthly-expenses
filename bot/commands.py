@@ -16,6 +16,7 @@ from bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_
     CURRENCY, get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_earnings, delete_expense, \
     delete_earning, get_sheet_report, create_sheet_by_month, add_recurrent, get_recurrent_elements, remove_recurrent
 from env_variables import USER_ID
+import html
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -688,7 +689,8 @@ def error(update, context):
     if update.poll:
         payload += f' with the poll id {update.poll.id}.'
     # lets put this in a "well" formatted text
-    text = f"Hey.\n The error <code>{context.error}</code> happened{payload}. The full traceback:\n\n<code>{trace}" \
+    err = f"{context.error}"
+    text = f"Hey.\n The error <code>{html.escape(err)}</code> happened{payload}. The full traceback:\n\n<code>{trace}" \
            f"</code>"
     # and send it to the dev(s)
     for dev_id in devs:

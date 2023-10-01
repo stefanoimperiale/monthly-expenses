@@ -168,7 +168,7 @@ def get_sheet_min_max_month():
         except ValueError as e:
           print ('error type: ', type (e))
           return -1, -1
-        
+
         logger.info('first month %s, last month %s', first_month, last_month)
         return first_month, last_month
     else:
@@ -269,7 +269,7 @@ def create_sheet_by_month(date):
     ]
 
     # Check recurrent elements
-    with open(recurrent_file) as json_file:
+    with open(recurrent_file, 'a+') as json_file:
         try:
             data = json.load(json_file)
             if len(data['earnings']) > 0:

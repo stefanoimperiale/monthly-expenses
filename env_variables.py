@@ -18,6 +18,8 @@ SERVER_PORT = os.getenv("PORT", "8443")
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 CURRENCY = os.getenv("CURRENCY")
 
+GOOGLE_APPLICATION_CREDENTIALS_JSON = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+
 if MODE is None:
     logger.error("No MODE specified!")
     sys.exit(1)

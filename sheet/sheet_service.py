@@ -1,19 +1,24 @@
+import json
 import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from env_variables import GOOGLE_APPLICATION_CREDENTIALS_JSON
+service_account_info = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
 
-BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
-CREDENTIALS_JSON = os.path.join(BASE_DIR, 'credentials.json')
+# BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
+# CREDENTIALS_JSON = os.path.join(BASE_DIR, 'credentials.json')
 # If modifying these scopes, delete the file token.pickle.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 
 class SheetService:
     def __init__(self):
+
         # Create a new service account in https://console.developers.google.com/apis/credentials,
         # and then share the spreadsheet file using the email of the generated account
-        credentials = service_account.Credentials.from_service_account_file(
-            CREDENTIALS_JSON, scopes=SCOPES)
+        # credentials = service_account.Credentials.from_service_account_info(
+        #     service_account_info, scopes=SCOPES)
+        credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
         service = build('sheets', 'v4', credentials=credentials, cache_discovery=False)
         # Call the Sheets API
         self.sheet = service.spreadsheets()
