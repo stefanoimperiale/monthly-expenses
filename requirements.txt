@@ -3,7 +3,7 @@ google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
 oauth2client
-python-telegram-bot
+python-telegram-bot==13.15
 python-telegram-bot-calendar
 fastnumbers
 imgkit
@@ -15,4 +15,4 @@ bs4
 w3lib
 pyppeteer
 plotly==4.9.0
-kaleido
+kaleido>=0.0.2

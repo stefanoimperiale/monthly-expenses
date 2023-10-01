@@ -5,7 +5,7 @@ import logging
 
 from telegram.ext import Updater
 from bot.handlers import set_handlers
-from env_variables import MODE, TOKEN, HEROKU_APP, HEROKU_PORT
+from env_variables import MODE, TOKEN, SERVER_URL, SERVER_PORT
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -18,15 +18,14 @@ if MODE == "dev":
 
 elif MODE == "prod":
     def run(upd):
-        heroku_app_name = HEROKU_APP
-        if HEROKU_APP is None:
-            logger.error("No HEROKU_APP specified!")
+        if SERVER_URL == "":
+            logger.error("No SERVER_URL specified!")
             sys.exit(1)
-        port = int(HEROKU_PORT)
+        port = int(SERVER_PORT)
         upd.start_webhook(listen="0.0.0.0",
                           port=port,
                           url_path=TOKEN)
-        upd.bot.set_webhook(f"https://{heroku_app_name}.herokuapp.com/{TOKEN}")
+        upd.bot.set_webhook(f"https://{SERVER_URL}/{TOKEN}")
 
 else:
     logger.error("No MODE specified!")

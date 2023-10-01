@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 MODE = os.getenv("MODE")
 TOKEN = os.getenv("TOKEN")
 USER_ID = os.getenv("USER_ID")
-# Heroku env
-HEROKU_APP = os.getenv("HEROKU_APP_NAME")
-HEROKU_PORT = os.getenv("PORT", "8443")
+# Prod env
+SERVER_URL = os.getenv("SERVER_URL")
+SERVER_PORT = os.getenv("PORT", "8080")
 
 # Spreadsheet env
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
