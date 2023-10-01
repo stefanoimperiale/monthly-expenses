@@ -1,5 +1,4 @@
 import json
-import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from env_variables import GOOGLE_APPLICATION_CREDENTIALS_JSON
