@@ -18,7 +18,7 @@ if MODE == "dev":
 
 elif MODE == "prod":
     def run(upd):
-        if SERVER_URL == "":
+        if SERVER_URL == "" or SERVER_URL is None:
             logger.error("No SERVER_URL specified!")
             sys.exit(1)
         port = int(SERVER_PORT)
