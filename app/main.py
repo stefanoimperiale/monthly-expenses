@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import threading
 
 from telethon import events, functions, types, TelegramClient
 
@@ -9,6 +10,7 @@ from app.bot.commands import unknown, start, keyboard, new_element, cancel, not_
 from app.bot.handlers import handle_callback, handle_message_callback
 from app.client import client, get_state, conversation_end, set_state
 from app.env_variables import USER_ID, logger, VERSION
+from app.webserver.server import appFlask
 from bot.commands import error_handler
 from env_variables import BOT_TOKEN
 
@@ -161,9 +163,11 @@ async def unknown_callback(event):
 client.start(bot_token=BOT_TOKEN)
 
 if __name__ == '__main__':
+    from waitress import serve
+
     loop = asyncio.get_event_loop()
     try:
-
+        threading.Thread(target=lambda: serve(appFlask, host="0.0.0.0", port=5500)).start()
         client.add_event_handler(check_user)
         loop.run_until_complete(client(functions.bots.SetBotCommandsRequest(
             scope=types.BotCommandScopeDefault(),
@@ -171,7 +175,7 @@ if __name__ == '__main__':
             commands=COMMANDS.values()
         )))
         logger.info("%s" % VERSION)
-        logger.info("********** START MONTHLY EXPANSES **********")
+        logger.info("********** START MONTHLY expenseS **********")
         client.run_until_disconnected()
     finally:
         client.disconnect()

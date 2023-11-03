@@ -4,7 +4,7 @@ chart_template = """
         <html>
           <head>
           <meta charset="utf-8">
-            <title>Month Expanses</title>
+            <title>Month expenses</title>
             <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
             <script type="text/javascript">
               google.charts.load('current', {'packages':['corechart']});

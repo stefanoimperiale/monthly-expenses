@@ -455,7 +455,7 @@ async def __get_chart_or_table(update, date_):
         await update.edit('🔄 Retrieving the chart...')
         async with client.action(user_id, 'photo'):
             image = get_chart_from_sheet(chart_date, user_id)
-            caption = f'Expanses Pie Chart for {chart_date.strftime("%B")}'
+            caption = f'expenses Pie Chart for {chart_date.strftime("%B")}'
     # show report
     elif user_data['element'] == 'show_report':
         return await __show_report(update, date_)

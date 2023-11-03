@@ -1,21 +1,21 @@
 # Monthly expense tracker
 [![](https://badgen.net/badge/icon/github?icon=github&label)](https://github.com/stefanoimperiale/monthly-expenses)
 [![](https://badgen.net/badge/icon/docker?icon=docker&label)](https://hub.docker.com/r/stefanoimperiale/monthly-expenses)
-[![Docker Pulls](https://badgen.net/docker/pulls/stefanoimperiale/monthly-expanses?icon=docker&label=pulls)](https://hub.docker.com/r/stefanoimperiale/monthly-expanses)
-[![Docker Stars](https://badgen.net/docker/stars/stefanoimperiale/monthly-expanses?icon=docker&label=stars)](https://hub.docker.com/r/stefanoimperiale/monthly-expanses)
-[![Docker Image Size](https://badgen.net/docker/size/stefanoimperiale/monthly-expanses?icon=docker&label=image%20size)](https://hub.docker.com/r/stefanoimperiale/telethon_downloader)
-![Github stars](https://badgen.net/github/stars/stefanoimperiale/monthly-expanses?icon=github&label=stars)
-![Github forks](https://badgen.net/github/forks/stefanoimperiale/monthly-expanses?icon=github&label=forks)
-![Github last-commit](https://img.shields.io/github/last-commit/stefanoimperiale/monthly-expanses)
-![Github last-commit](https://badgen.net/github/license/stefanoimperiale/monthly-expanses)
+[![Docker Pulls](https://badgen.net/docker/pulls/stefanoimperiale/monthly-expenses?icon=docker&label=pulls)](https://hub.docker.com/r/stefanoimperiale/monthly-expenses)
+[![Docker Stars](https://badgen.net/docker/stars/stefanoimperiale/monthly-expenses?icon=docker&label=stars)](https://hub.docker.com/r/stefanoimperiale/monthly-expenses)
+[![Docker Image Size](https://badgen.net/docker/size/stefanoimperiale/monthly-expenses?icon=docker&label=image%20size)](https://hub.docker.com/r/stefanoimperiale/telethon_downloader)
+![Github stars](https://badgen.net/github/stars/stefanoimperiale/monthly-expenses?icon=github&label=stars)
+![Github forks](https://badgen.net/github/forks/stefanoimperiale/monthly-expenses?icon=github&label=forks)
+![Github last-commit](https://img.shields.io/github/last-commit/stefanoimperiale/monthly-expenses)
+![Github last-commit](https://badgen.net/github/license/stefanoimperiale/monthly-expenses)
 
 ## Find us at:
 
-[![github](https://img.shields.io/badge/github-stefanoimperiale-5865F2?style=for-the-badge&logo=github&logoColor=white&labelColor=101010)](https://github.com/stefanoimperiale/monthly-expanses)
-[![docker](https://img.shields.io/badge/docker-stefanoimperiale-5865F2?style=for-the-badge&logo=docker&logoColor=white&labelColor=101010)](https://hub.docker.com/r/stefanoimperiale/monthly-expanses)
+[![github](https://img.shields.io/badge/github-stefanoimperiale-5865F2?style=for-the-badge&logo=github&logoColor=white&labelColor=101010)](https://github.com/stefanoimperiale/monthly-expenses)
+[![docker](https://img.shields.io/badge/docker-stefanoimperiale-5865F2?style=for-the-badge&logo=docker&logoColor=white&labelColor=101010)](https://hub.docker.com/r/stefanoimperiale/monthly-expenses)
 
 <p align="center">
-    <img src="https://github.com/stefanoimperiale/monthly-expanses/blob/master/images/logo.png?raw=true" alt="alt text" width="25%">
+    <img src="https://github.com/stefanoimperiale/monthly-expenses/blob/master/images/logo.png?raw=true" alt="alt text" width="25%">
 </p>
 
 # [stefanoimperiale/monthly-expenses](https://github.com/stefanoimperiale/monthly-expenses)
@@ -82,6 +82,17 @@ Before working with Telegram's API, you need to get your own API ID and hash:
    the bot and send requests to the Bot API. Keep your token secure and store it safely, it can be used by anyone to
    control your bot.
 
+# Wise Integration
+In order to enable Wise integration you need to create a new Wise Webhook. 
+You can do it from [here](https://wise.com/settings/webhooks).
+
+
+curl -X GET https://api.sandbox.transferwise.tech/v4/profiles/P56202086/balances?types=STANDARD \
+-H 'Authorization: Bearer c61d6c7d-cbe1-431a-a484-ab493af05844'
+
+curl -X GET "https://api.transferwise.com/v3/profiles/{{profileId}}/subscriptions/{{subscriptionId}}" \
+-H 'Authorization: Bearer c61d6c7d-cbe1-431a-a484-ab493af05844'
+
 ## Environment variables
 
 |              Environment              | Function                                                                     | Default Value |   
@@ -105,7 +116,8 @@ the `SPREADSHEET_ID` environment variable with the new spreadsheet id.
 version: "3"
 services:
   monthly-expenses:
-    image: stefanoimperiale/monthly-expanses
+    privileged: true
+    image: stefanoimperiale/monthly-expenses
     container_name: monthly-expense-tracker
     restart: unless-stopped
     environment:

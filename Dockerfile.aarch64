@@ -1,4 +1,4 @@
-FROM lsiobase/debian:bookworm
+FROM lsiobase/debian:arm64v8-bookworm
 
 WORKDIR /app
 COPY requirements.txt requirements.txt

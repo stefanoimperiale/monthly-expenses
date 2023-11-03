@@ -9,3 +9,5 @@ pillow
 plotly
 kaleido==0.2.1
 html2image
+flask
+waitress
