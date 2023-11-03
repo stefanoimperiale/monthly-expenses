@@ -132,3 +132,7 @@ dmypy.json
 credentials.json
 token.pickle
 bot/recurrent.json
+**/*.session
+**/*.session-journal
+**/*.db*
+**/*.ini

@@ -1,10 +1,10 @@
-from env_variables import CURRENCY
+from app.env_variables import CURRENCY
 
 chart_template = """
         <html>
           <head>
           <meta charset="utf-8">
-            <title>Monthly Example</title>
+            <title>Month Expanses</title>
             <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
             <script type="text/javascript">
               google.charts.load('current', {'packages':['corechart']});
@@ -14,9 +14,10 @@ chart_template = """
                 var formatter = new google.visualization.NumberFormat({prefix: '""" + CURRENCY + """ '});
                 formatter.format(json_data, 1)
                 var options = {
-                    title: 'Monthly expenses',
+                    title: 'Month Expenses',
                     is3D: true,
                     pieSliceText: 'label',
+                    chartArea: {'width': '100%%', 'height': '80%%'},
                     sliceVisibilityThreshold: 0,
                     legend: {
                         labeledValueText: 'both',
@@ -29,7 +30,7 @@ chart_template = """
             </script>
           </head>
           <body>
-            <div id="content" style="width: 900px; height: 500px;"></div>
+            <div id="content" style="width: 850px; height: 500px;"></div>
           </body>
         </html>
         """

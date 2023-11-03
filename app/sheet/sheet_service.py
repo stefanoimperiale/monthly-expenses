@@ -1,7 +1,10 @@
 import json
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from env_variables import GOOGLE_APPLICATION_CREDENTIALS_JSON
+
+from app.env_variables import GOOGLE_APPLICATION_CREDENTIALS_JSON
+
 service_account_info = json.loads(GOOGLE_APPLICATION_CREDENTIALS_JSON)
 
 # BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
@@ -12,7 +15,6 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 class SheetService:
     def __init__(self):
-
         # Create a new service account in https://console.developers.google.com/apis/credentials,
         # and then share the spreadsheet file using the email of the generated account
         # credentials = service_account.Credentials.from_service_account_info(
@@ -39,7 +41,7 @@ class SheetService:
     def write_append_sheet(self, sheet_id, range, values):
         body = {
             'values': values,
-            'range': range
+            'range': range,
         }
         result = self.sheet.values().append(
             spreadsheetId=sheet_id,
