@@ -1,7 +1,8 @@
 #!/usr/bin/with-contenv bash
 # permissions
 mkdir -p /config
+touch /config/cron.txt
 lsiown -R abc:abc /config /app
 chmod -R 775 /config /app
 
-exec s6-setuidgid abc python3 /app/app/main.py
+exec s6-setuidgid abc /app/app/main.py

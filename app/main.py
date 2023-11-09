@@ -1,6 +1,7 @@
+#!/usr/bin/env python3
 import asyncio
+import datetime
 import functools
-import threading
 
 from telethon import events, functions, types, TelegramClient
 
@@ -9,10 +10,11 @@ from app.bot.commands import unknown, start, keyboard, new_element, cancel, not_
     get_chart_date, new_recurrent_type
 from app.bot.handlers import handle_callback, handle_message_callback
 from app.client import client, get_state, conversation_end, set_state
-from app.env_variables import USER_ID, logger, VERSION
-from app.webserver.server import appFlask
+from app.env_variables import USER_ID, logger, VERSION, WISE_API_TOKEN
 from bot.commands import error_handler
 from env_variables import BOT_TOKEN
+from wise.wise_call import retrieve_wise_transactions
+import aiocron
 
 # THIS PATCHES THE add_event_handler METHOD
 orig_add_event_handler = TelegramClient.add_event_handler
@@ -162,20 +164,26 @@ async def unknown_callback(event):
 
 client.start(bot_token=BOT_TOKEN)
 
+
+async def wise_integration_run():
+    logger.info("********** STARTING WISE INTEGRATION AT {}**********".format(datetime.datetime.now()))
+    await retrieve_wise_transactions()
+    logger.info("********** ENDING WISE INTEGRATION AT {}**********".format(datetime.datetime.now()))
+
+
 if __name__ == '__main__':
-    from waitress import serve
 
     loop = asyncio.get_event_loop()
     try:
-        threading.Thread(target=lambda: serve(appFlask, host="0.0.0.0", port=5500)).start()
-        client.add_event_handler(check_user)
         loop.run_until_complete(client(functions.bots.SetBotCommandsRequest(
             scope=types.BotCommandScopeDefault(),
             lang_code='en',
             commands=COMMANDS.values()
         )))
         logger.info("%s" % VERSION)
-        logger.info("********** START MONTHLY expenseS **********")
+        logger.info("********** START MONTHLY expenses **********")
+        if WISE_API_TOKEN is not None:
+            aiocron.crontab('*/1 * * * *', func=wise_integration_run, args=(), start=True)
         client.run_until_disconnected()
     finally:
         client.disconnect()
