@@ -1,15 +1,14 @@
-import os
-import sys
 import base64
 import json
+from datetime import datetime, timedelta, timezone
+from urllib.parse import urlencode
+
 import rsa
 import urllib3
-from urllib.parse import urlencode
-from datetime import datetime, timedelta, timezone
 
-from app.env_variables import logger, CURRENCY, WISE_API_TOKEN
+from app.env_variables import logger, CURRENCY, WISE_API_TOKEN, WISE_PRIVATE_KEY
 
-private_key_path = './private-wise.pem'  # Change to private key path
+private_key_path = WISE_PRIVATE_KEY  # Change to private key path
 base_url = 'https://api.transferwise.com'
 
 token = WISE_API_TOKEN

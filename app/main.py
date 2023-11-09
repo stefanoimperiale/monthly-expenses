@@ -183,7 +183,7 @@ if __name__ == '__main__':
         logger.info("%s" % VERSION)
         logger.info("********** START MONTHLY expenses **********")
         if WISE_API_TOKEN is not None:
-            aiocron.crontab('*/1 * * * *', func=wise_integration_run, args=(), start=True)
+            aiocron.crontab('0 1 * * *', func=wise_integration_run, args=(), start=True)
         client.run_until_disconnected()
     finally:
         client.disconnect()

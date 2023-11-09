@@ -38,23 +38,23 @@ def list_in_chunks(orig_list, chunk_dim):
     return [orig_list[i:i + chunk_dim] for i in range(0, len(orig_list), chunk_dim)]
 
 
-def add_new_sheet_element(date: datetime.date, name: str, amount: float, start_range: str):
+def add_new_sheet_element(date: datetime.date, name: str, amount: float, start_range: str, currency=CURRENCY):
     month = date.strftime("%B")
     values = [
         [dates.format_date(date, locale='en'), name,
          re.sub('[a-zA-Z]+', '',
-                numbers.format_currency(amount, CURRENCY, u'¤ #,##0.00', locale='en_US', group_separator=False))]
+                numbers.format_currency(amount, currency, u'¤ #,##0.00', locale='en_US', group_separator=False))]
     ]
     updated = SheetService().write_append_sheet(SPREADSHEET_ID, f'{month}!{start_range}', values)
     return updated
 
 
-def add_new_expense(date: datetime.date, name: str, amount: float):
-    return add_new_sheet_element(date, name, amount, 'E3')
+def add_new_expense(date: datetime.date, name: str, amount: float, currency):
+    return add_new_sheet_element(date, name, amount, 'E3', currency)
 
 
-def add_new_earning(date: datetime.date, name: str, amount: float):
-    return add_new_sheet_element(date, name, amount, 'A3')
+def add_new_earning(date: datetime.date, name: str, amount: float, currency):
+    return add_new_sheet_element(date, name, amount, 'A3', currency)
 
 
 def convert_to_decimal(value):
@@ -222,7 +222,7 @@ def __get_values_for_update(values, date_):
          "userEnteredFormat": {
              "numberFormat": {
                  "type": "CURRENCY",
-                 "pattern": f"{re.sub('[a-zA-Z]+', '',numbers.get_currency_symbol(val[3]))}#,##0.00"
+                 "pattern": f"{re.sub('[a-zA-Z]+', '', numbers.get_currency_symbol(val[3]))}#,##0.00"
              },
              "horizontalAlignment": 'CENTER',
              "verticalAlignment": 'MIDDLE',

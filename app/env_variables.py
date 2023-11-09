@@ -34,6 +34,7 @@ WISE_API_TOKEN = get_env("WISE_API_TOKEN", None)
 TG_SQLITE_FILE = os.path.join(CONFIG_PATH, 'botclient.db')
 SESSION = os.path.join(CONFIG_PATH, 'botclient')
 CRON_FILE = os.path.join(CONFIG_PATH, 'cron.txt')
+WISE_PRIVATE_KEY = os.path.join(CONFIG_PATH, 'private-wise.pem')
 
 if API_ID is None or API_HASH is None or BOT_TOKEN is None:
     logger.error("No TOKEN specified!")
