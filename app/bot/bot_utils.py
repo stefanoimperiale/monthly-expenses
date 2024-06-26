@@ -59,7 +59,7 @@ def add_new_earning(date: datetime.date, name: str, amount: float, currency):
 def convert_to_decimal(value):
     conversion = list()
     conversion.insert(0, value[0])
-    amount = value[1] if len(value) > 1 else 0
+    amount = value[2] if len(value) > 2 else 1
     conversion.insert(1, float(Decimal(sub(r'[^\d.]', '', amount))))
     return conversion
 
@@ -102,8 +102,8 @@ def get_table_from_sheet(date):
             header=dict(values=header),
             cells=dict(values=l_,
                        fill=dict(
-                           color=['lightgreen', 'lightgreen', 'lightgreen', '#ff9982', '#ff9982', '#ff9982',
-                                  '#ffbf70', '#ffbf70']),
+                           color=['lightgreen', 'lightgreen', 'lightgreen', 'lightgreen', '#ff9982', '#ff9982',
+                                  '#ff9982', '#ff9982', '#ffbf70', '#ffbf70']),
                        height=30
                        )
         )
@@ -128,9 +128,10 @@ def get_chart_from_sheet(date, user_id):
     if len(values) == 0:
         return None
 
+    print(values)
     title = values[0]
-    values = list(map(convert_to_decimal, values[2:]))
-    values.insert(0, title)
+    values = list(map(convert_to_decimal, values[1:]))
+    values.insert(0, [title[0], title[2]])
     from html2image import Html2Image
     hti = Html2Image(output_path=CONFIG_PATH)
 
@@ -190,7 +191,7 @@ def delete_earning(date, index):
 
 def get_sheet_report(date):
     month = date.strftime("%B")
-    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}K3:M3')
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!K3:M3')
     values = result.get('values', [])
     return values[0][0], values[0][1], values[0][2]
 

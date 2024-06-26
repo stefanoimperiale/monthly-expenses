@@ -252,7 +252,6 @@ async def add_import(update):
 
     async with client.action(user_id, 'typing'):
         logger.info('User Data: %s %s', user_data, amount)
-        print(user_data, amount, currency, file=sys.stderr)
         if user_data['element'] == 'new_expense':
             updated = add_new_expense(user_data['date'], user_data['name'], amount, currency)
         elif user_data['element'] == 'new_earning':

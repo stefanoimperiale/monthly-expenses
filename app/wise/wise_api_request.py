@@ -60,7 +60,6 @@ def get_statement(url, one_time_token="", signature=""):
     if one_time_token != "":
         headers['x-2fa-approval'] = one_time_token
         headers['X-Signature'] = signature
-        print(headers['x-2fa-approval'], headers['X-Signature'])
 
     print('GET', url)
 
