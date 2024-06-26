@@ -42,15 +42,14 @@ def add_new_sheet_element(date: datetime.date, name: str, amount: float, start_r
     month = date.strftime("%B")
     values = [
         [dates.format_date(date, locale='en'), name,
-         re.sub('[a-zA-Z]+', '',
-                numbers.format_currency(amount, currency, u'¤ #,##0.00', locale='en_US', group_separator=False))]
+            f'{currency}{numbers.format_decimal(amount, u"#,##0.00", locale="en_US", group_separator=False)}']
     ]
-    updated = SheetService().write_append_sheet(SPREADSHEET_ID, f'{month}!{start_range}', values)
+    updated = SheetService().write_append_sheet(SPREADSHEET_ID, f"'{month}'!{start_range}", values)
     return updated
 
 
 def add_new_expense(date: datetime.date, name: str, amount: float, currency):
-    return add_new_sheet_element(date, name, amount, 'E3', currency)
+    return add_new_sheet_element(date, name, amount, 'F3', currency)
 
 
 def add_new_earning(date: datetime.date, name: str, amount: float, currency):
@@ -89,7 +88,7 @@ def render(html_, loop):
 def get_table_from_sheet(date):
     month = date.strftime("%B")
     result = SheetService().read_sheet_multiple(SPREADSHEET_ID,
-                                                [f'{month}!A2:C', f'{month}!E2:G', f'{month}!I2:K'],
+                                                [f'{month}!A2:D', f'{month}!F2:I', f'{month}!K2:M'],
                                                 major_dimension='COLUMNS')
     values = result.get('valueRanges', [])
     header = []
@@ -99,7 +98,7 @@ def get_table_from_sheet(date):
             header = header + [item[0] for item in val['values']]
             l_ = l_ + [i[1:] for i in val['values']]
         fig = go.Figure(data=[go.Table(
-            columnwidth=[80, 150, 100, 80, 150, 100, 100, 100],
+            columnwidth=[80, 150, 100, 100, 80, 150, 100, 100, 100, 100],
             header=dict(values=header),
             cells=dict(values=l_,
                        fill=dict(
@@ -113,7 +112,7 @@ def get_table_from_sheet(date):
             autosize=False,
             margin={'l': 10, 'r': 10, 't': 10, 'b': 10},
             width=1000,
-            height=30 * (max([len(i) for i in l_]) + 1) + 20,
+           # height=30 * (max([len(i) for i in l_]) + 1) + 20,
         )
         str_file = io.BytesIO(fig.to_image(format="png"))
         str_file.name = 'table.png'
@@ -124,13 +123,13 @@ def get_table_from_sheet(date):
 
 def get_chart_from_sheet(date, user_id):
     month = date.strftime("%B")
-    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!F2:G')
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!G2:I')
     values = result.get('values', [])
     if len(values) == 0:
         return None
 
     title = values[0]
-    values = list(map(convert_to_decimal, values[1:]))
+    values = list(map(convert_to_decimal, values[2:]))
     values.insert(0, title)
     from html2image import Html2Image
     hti = Html2Image(output_path=CONFIG_PATH)
@@ -161,14 +160,14 @@ def get_sheet_min_max_month():
 
 def get_sheet_expenses(date, value_render_option='FORMATTED_VALUE'):
     month = date.strftime("%B")
-    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!E3:G', value_render_option=value_render_option)
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!F3:I', value_render_option=value_render_option)
     values = result.get('values', [])
     return values
 
 
 def get_sheet_earnings(date, value_render_option='FORMATTED_VALUE'):
     month = date.strftime("%B")
-    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!A3:C', value_render_option=value_render_option)
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!A3:D', value_render_option=value_render_option)
     values = result.get('values', [])
     return values
 
@@ -177,21 +176,21 @@ def delete_expense(date, index):
     month = date.strftime("%B")
     values = get_sheet_expenses(date, 'UNFORMATTED_VALUE')
     del values[index]
-    values.append(["", "", ""])
-    SheetService().write_sheet(SPREADSHEET_ID, f'{month}!E3:G', values)
+    values.append(["", "", "", ""])
+    SheetService().write_sheet(SPREADSHEET_ID, f'{month}!F3:I', values)
 
 
 def delete_earning(date, index):
     month = date.strftime("%B")
     values = get_sheet_earnings(date, 'UNFORMATTED_VALUE')
     del values[index]
-    values.append(["", "", ""])
-    SheetService().write_sheet(SPREADSHEET_ID, f'{month}!A3:C', values)
+    values.append(["", "", "", ""])
+    SheetService().write_sheet(SPREADSHEET_ID, f'{month}!A3:D', values)
 
 
 def get_sheet_report(date):
     month = date.strftime("%B")
-    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}!I3:K3')
+    result = SheetService().read_sheet(SPREADSHEET_ID, f'{month}K3:M3')
     values = result.get('values', [])
     return values[0][0], values[0][1], values[0][2]
 
@@ -203,37 +202,17 @@ def __get_serial_number_from_date(date):
 
 
 def __get_values_for_update(values, date_):
-    return list(map(lambda val: {"values": [
-        {"userEnteredValue": {"numberValue": __get_serial_number_from_date(
-            datetime(date_.year, date_.month, min(val[0], calendar.monthrange(date_.year, date_.month)[1])))},
-            "userEnteredFormat": {
-                "numberFormat": {
-                    "type": "DATE",
-                    "pattern": "dd-mmm"
-                },
-                "horizontalAlignment": 'CENTER',
-                "verticalAlignment": 'MIDDLE',
-            }},
-        {"userEnteredValue": {"stringValue": val[1]}, "userEnteredFormat": {
-            "horizontalAlignment": 'CENTER',
-            "verticalAlignment": 'MIDDLE',
-        }},
-        {"userEnteredValue": {"numberValue": val[2]},
-         "userEnteredFormat": {
-             "numberFormat": {
-                 "type": "CURRENCY",
-                 "pattern": f"{re.sub('[a-zA-Z]+', '', numbers.get_currency_symbol(val[3]))}#,##0.00"
-             },
-             "horizontalAlignment": 'CENTER',
-             "verticalAlignment": 'MIDDLE',
-         }}
-    ]}, values))
-
+    return [
+        datetime(date_.year, date_.month, min(values[0], calendar.monthrange(date_.year, date_.month)[1])).strftime("%m-%d"),
+        values[1],
+        values[2] if CURRENCY == values[3] else f'{values[3]} {values[2]}',
+    ]
 
 def create_sheet_by_month(date):
     sheet_service = SheetService()
 
-    sheet_properties = sheet_service.add_sheet(SPREADSHEET_ID, date.strftime("%B"))
+    sheet_name = date.strftime("%B")
+    sheet_properties = sheet_service.add_sheet(SPREADSHEET_ID, sheet_name)
     sheet_id = sheet_properties['sheetId']
     requests = get_sheet_format(sheet_id)
     requests = requests + [
@@ -253,48 +232,26 @@ def create_sheet_by_month(date):
             }
         }
     ]
+    sheet_service.update_sheet(SPREADSHEET_ID, requests)
 
     # Check recurrent elements
     with open(recurrent_file, 'a+') as json_file:
         try:
             json_file.seek(0)
             data = json.load(json_file)
+            req_data = []
             if len(data['earnings']) > 0:
-                requests = requests + [
-                    {
-                        "updateCells": {
-                            "rows": __get_values_for_update(data['earnings'], date),
-                            "fields": "*",
-                            "start": {
-                                "sheetId": sheet_id,
-                                "rowIndex": 2,
-                                "columnIndex": 0
-                            }
-                        }
-                    }
-                ]
+                req_data = req_data + [(f"'{sheet_name}'!A3", list(__get_values_for_update(val, date) for  val in data['earnings']))]
             if len(data['expenses']) > 0:
-                requests = requests + [
-                    {
-                        "updateCells": {
-                            "rows": __get_values_for_update(data['expenses'], date),
-                            "fields": "*",
-                            "start": {
-                                "sheetId": sheet_id,
-                                "rowIndex": 2,
-                                "columnIndex": 4
-                            }
-                        }
-                    }
-                ]
+                req_data = req_data + [(f"'{sheet_name}'!F3", list(__get_values_for_update(val, date) for val in data['expenses']))]
         except JSONDecodeError as e:
             logger.error('Error parsing recurring file')
             pass
+        if len(req_data) > 0:
+            sheet_service.update_values(SPREADSHEET_ID, req_data)
 
-    sheet_service.update_sheet(SPREADSHEET_ID, requests)
 
-
-def add_recurrent(elem_type, day, name, amount):
+def add_recurrent(elem_type, day, name, amount, currency):
     with open(recurrent_file, 'a+') as infile:
         infile.seek(0)
         try:
@@ -305,7 +262,7 @@ def add_recurrent(elem_type, day, name, amount):
                 "expenses": []
             }
     with open(recurrent_file, 'w') as outfile:
-        data[elem_type].append([day, name, amount, CURRENCY])
+        data[elem_type].append([day, name, amount, currency])
         json.dump(data, outfile)
 
 

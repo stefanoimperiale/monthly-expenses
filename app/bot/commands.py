@@ -7,6 +7,7 @@ from datetime import datetime, date
 from fastnumbers import fast_float
 from telegram_bot_calendar import LSTEP
 from telethon import types, Button, events
+from currency_codes import get_currency_by_code, CurrencyNotFoundError
 
 from app.bot.bot_utils import build_menu, MyStyleCalendar, add_new_expense, add_new_earning, get_chart_from_sheet, \
     get_sheet_min_max_month, get_table_from_sheet, get_sheet_expenses, get_sheet_earnings, delete_expense, \
@@ -91,6 +92,15 @@ def get_keyboard():
     return client.build_reply_markup(build_menu(keyboard_list[:-1], 2, footer_buttons=keyboard_list[-1]),
                                      )
 
+def extract_amount(message):
+    try:
+        get_currency_by_code(message[0:3])
+        amount = round(fast_float(message[3:], default=-1), 2)
+        currency = message[0:3]
+    except CurrencyNotFoundError:
+        amount = round(fast_float(message, default=-1), 2)
+        currency = CURRENCY
+    return amount, currency
 
 async def send_images_helper(user_id, images, caption):
     """
@@ -232,20 +242,21 @@ async def add_name(update):
 async def add_import(update):
     user_id = get_user_id(update)
     message = update.message.text
-    amount = round(fast_float(message, default=-1), 2)
+    amount, currency = extract_amount(message)
     if amount == -1:
         await client.send_message(user_id,
                                   "⚠ The amount is not correct! "
-                                  "Only numbers with 2 decimal are allowed\n\n"
+                                  "Only numbers with 2 decimal are allowed and valid currency code (es 123.45, EUR123.32)\n\n"
                                   f"/{COMMANDS['cancel'].command}")
         return BotState.IMPORT
 
     async with client.action(user_id, 'typing'):
         logger.info('User Data: %s %s', user_data, amount)
+        print(user_data, amount, currency, file=sys.stderr)
         if user_data['element'] == 'new_expense':
-            updated = add_new_expense(user_data['date'], user_data['name'], amount)
+            updated = add_new_expense(user_data['date'], user_data['name'], amount, currency)
         elif user_data['element'] == 'new_earning':
-            updated = add_new_earning(user_data['date'], user_data['name'], amount)
+            updated = add_new_earning(user_data['date'], user_data['name'], amount, currency)
         else:
             updated = 0
 
@@ -254,7 +265,7 @@ async def add_import(update):
                                       f"✅ New element added!\n\n"
                                       f"📆 Date: {user_data['date'].strftime('%d/%m/%Y')}\n"
                                       f"✍ Description: {user_data['name']}\n"
-                                      f"💰 Amount: {CURRENCY}{amount}\n")
+                                      f"💰 Amount: {currency}{amount}\n")
         else:
             await client.send_message(user_id,
                                       f"⚠ Element not added, retry!")
@@ -591,28 +602,25 @@ async def new_recurrent_import(update):
                               f"/{COMMANDS['cancel'].command}")
     return BotState.RECURRENT_IMPORT
 
-
 async def new_recurrent_insert(update):
     user_id = get_user_id(update)
     message = update.message.message
-    amount = round(fast_float(message, default=-1), 2)
+    amount, currency = extract_amount(message)
     if amount == -1:
         await client.send_message(user_id,
-                                  "⚠ The amount is not correct! "
-                                  "Only numbers with 2 decimal are allowed\n\n"
+                                  "⚠ The amount is not correct or the currency is not valid!"
+                                  "Only numbers with 2 decimal are allowed and valid currency code (es 123.45, EUR123.32)\n\n"
                                   f"/{COMMANDS['cancel'].command}")
         return BotState.RECURRENT_IMPORT
-
     async with client.action(user_id, 'typing'):
-        add_recurrent(user_data['type'], user_data['day'], user_data['name'], amount)
+        add_recurrent(user_data['type'], user_data['day'], user_data['name'], amount, currency)
         await client.send_message(user_id,
                                   f"✅ New recurrent element added!\n\n"
                                   f"📆 Date: {user_data['day']} of every month\n"
                                   f"✍ Description: {user_data['name']}\n"
-                                  f"💰 Amount: {CURRENCY}{amount}\n")
+                                  f"💰 Amount: {currency}{amount}\n")
     conversation_end(update)
     return None
-
 
 async def select_delete_recurrent(update):
     user_id = get_user_id(update)

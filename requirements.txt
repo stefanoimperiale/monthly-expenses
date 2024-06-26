@@ -10,3 +10,4 @@ plotly
 kaleido==0.2.1
 html2image
 aiocron
+currency_codes

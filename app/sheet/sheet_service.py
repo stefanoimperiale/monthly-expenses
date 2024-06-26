@@ -112,3 +112,14 @@ class SheetService:
             spreadsheetId=spreadsheet_id,
             body=body).execute()
         return response
+
+    def update_values(self, spreadsheet_id, elements: list[tuple[str, list[str]]]):
+        data = list(map(lambda element:{
+            'range': element[0],
+            'values': element[1],
+        }, elements))
+        body = {"valueInputOption": "USER_ENTERED", "data": data}
+        result = self.sheet.values().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body).execute()
+        return result.get('totalUpdatedCells')
