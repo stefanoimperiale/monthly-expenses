@@ -3,7 +3,6 @@ import calendar
 import io
 import json
 import os
-import re
 from datetime import datetime
 from decimal import Decimal
 from json import JSONDecodeError
@@ -128,7 +127,6 @@ def get_chart_from_sheet(date, user_id):
     if len(values) == 0:
         return None
 
-    print(values)
     title = values[0]
     values = list(map(convert_to_decimal, values[1:]))
     values.insert(0, [title[0], title[2]])
